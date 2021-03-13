@@ -5,7 +5,7 @@ import pandas as pd
 import struct
 import time
 
-comPort = 'COM7'
+comPort = 'COM5'
 
 def save_sweeps(gain):
     numSaved = get_num_saved()

@@ -11,17 +11,14 @@
 #define INC_AD5933_H_
 
 #include "nrf_delay.h"
-#include "nrf_drv_twi.h"
-#include "app_usbd_core.h"
-#include "app_usbd.h"
-#include "app_usbd_string_desc.h"
-#include "app_usbd_cdc_acm.h"
-#include "app_usbd_serial_num.h"
-#ifdef DEBUG_TWI
+#include "twiManager.h"
+
+#ifdef DEBUG_AD5933
 #include "nrf_log.h"
 #include "nrf_log_ctrl.h"
 #include "nrf_log_default_backends.h"
 #endif
+
 #include <math.h>
 
 // Clock Frequency (for calculations)
@@ -105,7 +102,6 @@
 extern const nrf_drv_twi_t m_twi;
 extern volatile bool m_xfer_done;
 extern volatile bool twi_error;
-extern const app_usbd_cdc_acm_t m_app_cdc_acm;
 
 // struct to hold sweep metadata
 typedef struct sweepData
@@ -132,7 +128,6 @@ typedef struct sweepParams
   // sweep information
   uint16_t currentStep;      // the current step the sweep is on
   uint32_t currentFrequency; // the current frequency of the sweep
-  uint8_t currentData[4];   // the real and imaginary impedance values of the last point of the sweep
 	
 	// sweep metaData
 	MetaData metadata;

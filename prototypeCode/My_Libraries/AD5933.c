@@ -8,7 +8,6 @@
  */
 
 #include "AD5933.h"
-#include "usbManager.h"
 
 // sweeps given sweep parameters and saves sweep data to arrays from the input arguments
 // Arguments: 
@@ -48,7 +47,7 @@ bool AD5933_Sweep(Sweep * sweep, uint32_t * freq, uint16_t * real, uint16_t * im
   // start the frequency sweep
   if (!AD5933_SetControl(START_SWEEP, sweep->range, sweep->gain, sweep->clockSource, 0)) return false;
 
-#ifdef DEBUG_TWI
+#ifdef DEBUG_AD5933
   NRF_LOG_INFO("Sweep start success");
   NRF_LOG_FLUSH();
 #endif
@@ -80,14 +79,14 @@ bool AD5933_Sweep(Sweep * sweep, uint32_t * freq, uint16_t * real, uint16_t * im
 		
 		if (!i2c_stats)
 		{
-#ifdef DEBUG_TWI
+#ifdef DEBUG_AD5933
 			NRF_LOG_INFO("Read Data Fail");
 			NRF_LOG_FLUSH();
 #endif
 		}
 		else
 		{
-#ifdef DEBUG_TWI
+#ifdef DEBUG_AD5933
 			NRF_LOG_INFO("Freq: %d Real: %d Imag: %d", sweep->currentFrequency, data[0], data[1]);
 			NRF_LOG_FLUSH();
 #endif
@@ -140,8 +139,8 @@ bool AD5933_SetStart(uint32_t start, uint32_t clkFreq)
   buff[1] = (start >> 8) & 0xFF;
   buff[2] = start & 0xFF;
 
-#ifdef DEBUG_TWI_ALL
-  NRF_LOG_INFO("Sending 0x%x%x%x to register 0x%x", buff[0], buff[1], buff[2], START_FREQ_REG);
+#ifdef DEBUG_AD5933
+  NRF_LOG_INFO("AD5933: Setting start frequency to %x%x%x", buff[0], buff[1], buff[2]);
   NRF_LOG_FLUSH();
 #endif
 
@@ -173,8 +172,8 @@ bool AD5933_SetDelta(uint32_t delta, uint32_t clkFreq)
   buff[1] = (delta >> 8) & 0xFF;
   buff[2] = delta & 0xFF;
 
-#ifdef DEBUG_TWI_ALL
-  NRF_LOG_INFO("Sending 0x%x%x%x to register 0x%x", buff[0], buff[1], buff[2], DELTA_FREQ_REG);
+#ifdef DEBUG_AD5933
+  NRF_LOG_INFO("AD5933: Setting delta frequency to %x%x%x", buff[0], buff[1], buff[2]);
   NRF_LOG_FLUSH();
 #endif
 
@@ -202,8 +201,8 @@ bool AD5933_SetSteps(uint16_t steps)
   buff[0] = (steps >> 8) & 0x01;
   buff[1] = steps & 0xFF;
 
-#ifdef DEBUG_TWI_ALL
-  NRF_LOG_INFO("Sending 0x%x%x to register 0x%x", buff[0], buff[1], NUM_STEPS_REG);
+#ifdef DEBUG_AD5933
+  NRF_LOG_INFO("AD5933: Setting steps to %x%x", buff[0], buff[1]);
   NRF_LOG_FLUSH();
 #endif
 
@@ -232,8 +231,8 @@ bool AD5933_SetCycles(uint16_t cycles, uint8_t multiplier)
   buff[0] = ((cycles >> 8) & 0x01) | multiplier;
   buff[1] = cycles & 0xFF;
 
-#ifdef DEBUG_TWI_ALL
-  NRF_LOG_INFO("Sending 0x%x%x to register 0x%x", buff[0], buff[1], NUM_CYCLES_REG);
+#ifdef DEBUG_AD5933
+  NRF_LOG_INFO("AD4933: Setting cycles to %x%x", buff[0], buff[1]);
   NRF_LOG_FLUSH();
 #endif
 
@@ -263,8 +262,8 @@ bool AD5933_SetControl(uint8_t command, uint8_t range, uint8_t gain, uint8_t clo
   buff[0] = (command << 4) | ((range << 2) | gain);
   buff[1] = (reset << 4) | (clock << 3);
 
-#ifdef DEBUG_TWI_ALL
-  NRF_LOG_INFO("Sending 0x%x to register 0x%x and 0x%x to register 0x%x", buff[0], CONTROL1_REG, buff[1], CONTROL2_REG);
+#ifdef DEBUG_AD5933
+  NRF_LOG_INFO("AD5933: Setting control registers to %x and %x", buff[0], buff[1]);
   NRF_LOG_FLUSH();
 #endif
 
@@ -288,8 +287,8 @@ bool AD5933_ReadStatus(uint8_t * buff)
   // read the status byte
   status = AD5933_ReadBytes(buff, 1, STATUS_REG);
 
-#ifdef DEBUG_TWI_ALL
-  NRF_LOG_INFO("Read 0x%x from register 0x%x", buff[0], STATUS_REG);
+#ifdef DEBUG_AD5933
+  NRF_LOG_INFO("AD5933: Status is %x", buff[0]);
   NRF_LOG_FLUSH();
 #endif
 
@@ -311,11 +310,6 @@ bool AD5933_ReadTemp(int * temp)
   // read the temperature register
   AD5933_ReadBytes(buff, 2, TEMP_REG);
 
-#ifdef DEBUG_TWI_ALL
-  NRF_LOG_INFO("Read 0x%x%x from register 0x%x", buff[0], buff[1], TEMP_REG);
-  NRF_LOG_FLUSH();
-#endif
-
   // check if temp is negative
   if ((buff[0] & 0x20))
   {
@@ -330,6 +324,10 @@ bool AD5933_ReadTemp(int * temp)
     // calculate
     *temp = num / 32;
   }
+#ifdef DEBUG_AD5933
+	NRF_LOG_INFO("AD5933: Calculated internal temperature: %d C", temp);
+	NRF_LOG_FLUSH();
+#endif
   return true;
 }
 
@@ -399,32 +397,16 @@ bool AD5933_WriteBytes(uint8_t * buff, uint8_t numbytes, uint8_t reg)
 //  true if no error
 bool AD5933_SetPointer(uint8_t reg)
 {
-  // stores error code
-  ret_code_t err_code;
-
   // set data buffer
   uint8_t buff[2] = {SET_POINTER, reg};
 
-#ifdef DEBUG_TWI_ALL
-  NRF_LOG_INFO("Setting Pointer to %x", reg);
+#ifdef DEBUG_AD5933
+  NRF_LOG_INFO("AD5933: Setting Pointer to %x", reg);
   NRF_LOG_FLUSH();
 #endif
-
-  // send the data
-  m_xfer_done = false;
-  err_code = nrf_drv_twi_tx(&m_twi, AD5933_ADDR, buff, sizeof(buff), false);
-
-  // check for error
-  APP_ERROR_CHECK(err_code);
-
-  // wait for transfer to be done
-  while (m_xfer_done == false);
-
-  // check if fail
-  if (twi_error || (err_code != NRF_SUCCESS)) return false;
-
-  // success
-  return true;
+	
+  // write and return result
+  return twiManager_write(AD5933_ADDR, buff, sizeof(buff));
 }
 
 // Arguments:
@@ -435,32 +417,16 @@ bool AD5933_SetPointer(uint8_t reg)
 //  true if no error
 bool AD5933_Write(uint8_t data, uint8_t reg)
 {
-  // stores error code
-  ret_code_t err_code;
-
   // set data buffer
   uint8_t buff[2] = {reg, data};
 
-#ifdef DEBUG_TWI_ALL
-  NRF_LOG_INFO("Writing 0x%x to register 0x%x", data, reg);
+#ifdef DEBUG_AD5933
+  NRF_LOG_INFO("AD5933: Writing 0x%x to register 0x%x", data, reg);
   NRF_LOG_FLUSH();
 #endif
 
-  // send the data
-  m_xfer_done = false;
-  err_code = nrf_drv_twi_tx(&m_twi, AD5933_ADDR, buff, sizeof(buff), false);
-
-  // check for error
-  APP_ERROR_CHECK(err_code);
-
-  // wait for transfer to be done
-  while (m_xfer_done == false);
-
-  // check if fail
-  if (twi_error || (err_code != NRF_SUCCESS)) return false;
-
-  // success
-  return true;
+  // write and return result
+  return twiManager_write(AD5933_ADDR, buff, sizeof(buff));
 }
 
 // Write numbytes (max 30) to the location of the internal pointer (set the pointer with AD5933_SetPointer)
@@ -472,9 +438,6 @@ bool AD5933_Write(uint8_t data, uint8_t reg)
 //  true if no error
 bool AD5933_BlockWrite(uint8_t * buff, uint8_t numbytes)
 {
-  // stores error code
-  ret_code_t err_code;
-
   // check if numbytes greater than 32
   if (numbytes > 30)
   {
@@ -488,8 +451,8 @@ bool AD5933_BlockWrite(uint8_t * buff, uint8_t numbytes)
   data[0] = BLOCK_WRITE;
   data[1] = numbytes;
 
-#ifdef DEBUG_TWI_ALL
-  NRF_LOG_INFO("Block Writing %d bytes to pointer", numbytes);
+#ifdef DEBUG_AD5933
+  NRF_LOG_INFO("AD5933: Block Writing %d bytes to pointer", numbytes);
   NRF_LOG_FLUSH();
 #endif
 
@@ -499,21 +462,8 @@ bool AD5933_BlockWrite(uint8_t * buff, uint8_t numbytes)
     data[i + 2] = buff[i];
   }
 
-  // send the data
-  m_xfer_done = false;
-  err_code = nrf_drv_twi_tx(&m_twi, AD5933_ADDR, data, numbytes + 2, false);
-
-  // check for error
-  APP_ERROR_CHECK(err_code);
-
-  // wait for transfer to be done
-  while (m_xfer_done == false);
-
-  // check if fail
-  if (twi_error || (err_code != NRF_SUCCESS)) return false;
-
-  // success
-  return true;	
+  // write and return result
+  return twiManager_write(AD5933_ADDR, data, numbytes + 2);
 }
 
 // Read one byte from the location of the internal pointer (set the pointer with AD6933_setPointer)
@@ -524,29 +474,13 @@ bool AD5933_BlockWrite(uint8_t * buff, uint8_t numbytes)
 //  true if no error
 bool AD5933_ReadByte(uint8_t * buff)
 {
-  // stores error code
-  ret_code_t err_code;
-
-#ifdef DEBUG_TWI_ALL
-  NRF_LOG_INFO("Reading a byte from pointer");
+#ifdef DEBUG_AD5933
+  NRF_LOG_INFO("AD5933: Reading a byte from pointer");
   NRF_LOG_FLUSH();
 #endif
 
-  // read byte from AD5933
-  m_xfer_done = false;
-  err_code = nrf_drv_twi_rx(&m_twi, AD5933_ADDR, buff, 1);
-
-  // check for error
-  APP_ERROR_CHECK(err_code);
-
-  // wait for transfer to be done
-  while (m_xfer_done == false);
-
-  // check if fail
-  if (twi_error || (err_code != NRF_SUCCESS)) return false;
-
-  // success
-  return true;
+  // read and return result
+  return twiManager_write(AD5933_ADDR, buff, 1);
 }
 
 // Read numbytes from the location of the internal pointer (set the pointer with AD6933_setPointer)
@@ -558,42 +492,19 @@ bool AD5933_ReadByte(uint8_t * buff)
 //  true if no error
 bool AD5933_BlockRead(uint8_t * buff, uint8_t numbytes)
 {
-  // stores error code
-  ret_code_t err_code;
+  // set command buffer
+  uint8_t command[2] = {BLOCK_READ, numbytes};
 
-  // set data buffer
-  uint8_t data[2] = {BLOCK_READ, numbytes};
-
-#ifdef DEBUG_TWI_ALL
+#ifdef DEBUG_AD5933
   NRF_LOG_INFO("Block reading %d bytes from pointer", numbytes);
   NRF_LOG_FLUSH();
 #endif
 
-  // send the data to initiate block read
-  m_xfer_done = false;
-  err_code = nrf_drv_twi_tx(&m_twi, AD5933_ADDR, data, sizeof(data), false);
-
-  // check for error
-  APP_ERROR_CHECK(err_code);
-
-  // wait for transfer to be done
-  while (m_xfer_done == false);
-
-  // check if fail
-  if (twi_error || (err_code != NRF_SUCCESS)) return false;
+  // send the command to initiate block read
+  if (!twiManager_write(AD5933_ADDR, command, 2)) return false;
 
   // now read numbytes from the AD5933
-  m_xfer_done = false;
-  err_code = nrf_drv_twi_rx(&m_twi, AD5933_ADDR, buff, numbytes);
-
-  // check for error
-  APP_ERROR_CHECK(err_code);
-
-  // wait for transfer to be done
-  while (m_xfer_done == false);
-
-  // check if fail
-  if (twi_error || (err_code != NRF_SUCCESS)) return false;
+	if (!twiManager_read(AD5933_ADDR, buff, numbytes)) return false;
 
   // success
   return true;

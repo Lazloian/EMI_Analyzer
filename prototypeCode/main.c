@@ -22,7 +22,6 @@
 #include "nrf_delay.h"
 #include "boards.h"
 #include "app_util_platform.h"
-#include "nrf_drv_twi.h"
 
 #include "mem_manager.h"
 
@@ -38,6 +37,7 @@
 #endif
 
 // my modules include
+#include "twiManager.h"
 #include "AD5933.h"
 #include "flashManager.h"
 #include "usbManager.h"
@@ -54,32 +54,13 @@
 
 bool recieveSweep(Sweep * sweep);
 void set_default(Sweep * sweep);
-bool saveSweep();
+bool saveSweep(void);
 
 // variable to store the number of saved sweeps
 static uint32_t numSweeps = 0;
 
 // create a new sweep
 static Sweep sweep = {0};
-
-// --- TWI Defines ---
-
-// Needed to get the instance ID
-#define TWI_INSTANCE_ID     0
-
-// function declarations
-void twi_handler(nrf_drv_twi_evt_t const * p_event, void * p_context);
-void twi_init (void);
-
-
-// get the TWI instance
-const nrf_drv_twi_t m_twi = NRF_DRV_TWI_INSTANCE(TWI_INSTANCE_ID);
-
-// Indicates if operation on TWI has ended
-volatile bool m_xfer_done = false;
-
-// Indicates TWI error
-volatile bool twi_error = false;
 
 // --- RTC Defines ---
 #define RTC_FREQ 8 																 // RTC frequency in Hz
@@ -102,8 +83,6 @@ static void gpiote_init(void);
 int main(void)
 {
   bool i2c_stats;						// stores if i2c success
-  uint8_t AD5933_status;	 // to store the status
-  ret_code_t ret;					// NRF status
 
   // init Log
 #ifdef DEBUG_LOG
@@ -114,7 +93,7 @@ int main(void)
 #endif
 
   // init twi
-  twi_init();
+  twiManager_init();
 
   // init USB
   usbManager_init();
@@ -296,7 +275,7 @@ int main(void)
 }
 
 
-bool saveSweep()
+bool saveSweep(void)
 {
 	// allocate memory for sweep data
 	uint32_t * freq = nrf_malloc(MAX_FREQ_SIZE);
@@ -435,9 +414,13 @@ static void rtc_handler(nrf_drv_rtc_int_type_t int_type)
 	if (int_type == NRF_DRV_RTC_INT_COMPARE0)
 	{
 		// what to do when the time to compare to has been triggered
-		nrf_drv_gpiote_out_toggle(LED_SWEEP);
+		nrf_drv_gpiote_out_clear(LED_SWEEP);
+		nrf_delay_ms(100);
+		nrf_drv_gpiote_out_set(LED_SWEEP);
 		saveSweep();
-		nrf_drv_gpiote_out_toggle(LED_SWEEP);
+		nrf_drv_gpiote_out_set(LED_SWEEP);
+		nrf_drv_gpiote_out_set(LED_RTC);
+		nrf_drv_gpiote_out_set(LED_AD5933);
 		nrf_drv_rtc_cc_set(&rtc, 0, compares * (COMPARE_TIME * RTC_FREQ), true);
 	  compares++;
 	}
@@ -477,82 +460,4 @@ static void rtc_config(void)
 
     //Power on RTC instance
     //nrf_drv_rtc_enable(&rtc);
-}
-
-// --- TWI Functions ---
-
-// TWI events handler.
-void twi_handler(nrf_drv_twi_evt_t const * p_event, void * p_context)
-{
-  switch (p_event -> type)
-  {
-    case NRF_DRV_TWI_EVT_DONE:
-      if (p_event -> xfer_desc.type == NRF_DRV_TWI_XFER_RX)
-      {
-#if defined(DEBUG_LOG) && defined(DEBUG_TWI_ALL)
-        NRF_LOG_INFO("TWI Read Success");
-        NRF_LOG_FLUSH();
-#endif
-      }
-      else if (p_event -> xfer_desc.type == NRF_DRV_TWI_XFER_TX)
-      {
-#if defined(DEBUG_LOG) && defined(DEBUG_TWI_ALL)
-        NRF_LOG_INFO("TWI Write Success");
-        NRF_LOG_FLUSH();
-#endif
-      }
-
-      // set transfer done to true
-      m_xfer_done = true;
-      // set error to false
-      twi_error = false;
-      break;
-
-    case NRF_DRV_TWI_EVT_ADDRESS_NACK:
-#if defined(DEBUG_LOG) && defined(DEBUG_TWI_ALL)
-      NRF_LOG_INFO("TWI Address Not Found");
-      NRF_LOG_FLUSH();
-#endif
-
-      // set transfer done to true
-      m_xfer_done = true;
-      // set twi error to true
-      twi_error = true;
-      break;
-
-    case NRF_DRV_TWI_EVT_DATA_NACK:
-#if defined(DEBUG_LOG) && defined(DEBUG_TWI_ALL)
-      NRF_LOG_INFO("TWI Transfer Failed");
-      NRF_LOG_FLUSH();
-#endif
-
-      // set transfer done to true
-      m_xfer_done = true;
-      // set twi error to true
-      twi_error = true;
-      break;
-
-    default:
-      break;
-  }
-}
-
-
-// TWI (I2C) initialization.
-void twi_init (void)
-{
-  ret_code_t err_code;
-
-  const nrf_drv_twi_config_t twi_lm75b_config = {
-    .scl                = ARDUINO_SCL_PIN,
-    .sda                = ARDUINO_SDA_PIN,
-    .frequency          = NRF_DRV_TWI_FREQ_100K,
-    .interrupt_priority = APP_IRQ_PRIORITY_HIGH,
-    .clear_bus_init     = false
-  };
-  // this inits twi and sets the handler function
-  err_code = nrf_drv_twi_init(&m_twi, &twi_lm75b_config, twi_handler, NULL);
-  APP_ERROR_CHECK(err_code);
-
-  nrf_drv_twi_enable(&m_twi);
 }

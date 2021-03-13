@@ -12,7 +12,6 @@ APP_USBD_CDC_ACM_GLOBAL_DEF(m_app_cdc_acm,
     );
 
 static uint8_t m_rx_buffer[READ_SIZE];
-static uint8_t m_tx_buffer[NRF_DRV_USBD_EPSIZE];
 
 // Indicates if USB rx has occured
 static volatile bool rx_ready = false;
