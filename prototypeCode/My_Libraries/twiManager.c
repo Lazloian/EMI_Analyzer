@@ -147,7 +147,7 @@ void twiManager_handler(nrf_drv_twi_evt_t const * p_event, void * p_context)
 
 
 // TWI (I2C) initialization.
-void twiManager_init (void)
+bool twiManager_init (void)
 {
   ret_code_t err_code;
 
@@ -163,4 +163,6 @@ void twiManager_init (void)
   APP_ERROR_CHECK(err_code);
 
   nrf_drv_twi_enable(&m_twi);
+	
+	return true;
 }

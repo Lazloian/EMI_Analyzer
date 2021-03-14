@@ -98,11 +98,6 @@
 #define BLOCK_READ      0xA1
 #define BLOCK_WRITE     0xA0
 
-// get external variables from main
-extern const nrf_drv_twi_t m_twi;
-extern volatile bool m_xfer_done;
-extern volatile bool twi_error;
-
 // struct to hold sweep metadata
 typedef struct sweepData
 {

@@ -1,5 +1,5 @@
 /*
- *  AD5933.h
+ *  twiManager.h
  *  
  *  Header file for twiManager.c
  *
@@ -36,5 +36,5 @@
 bool twiManager_read(uint8_t address, uint8_t * buff, uint8_t numBytes);
 bool twiManager_write(uint8_t address, uint8_t * buff, uint8_t numBytes);
 void twiManager_handler(nrf_drv_twi_evt_t const * p_event, void * p_context);
-void twiManager_init (void);
+bool twiManager_init (void);
 #endif
