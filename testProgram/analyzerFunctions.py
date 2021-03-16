@@ -7,6 +7,12 @@ import time
 
 comPort = 'COM5'
 
+def set_com_port():
+    global comPort
+    port = input('COM Port: ')
+    comPort = 'COM' + port
+    return
+
 def save_sweeps(gain):
     numSaved = get_num_saved()
 

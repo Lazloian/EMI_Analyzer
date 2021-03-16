@@ -74,7 +74,7 @@ while(1):
     elif (cmd == 'h'):
         af.print_commands()
     elif (cmd == 'p'):
-        af.print_sweep(sweep)
+        af.set_com_port()
     elif (cmd == 'e'):
         sweep = af.edit_sweep(sweep)
         af.print_sweep(sweep)
