@@ -15,8 +15,9 @@
 #include <stdint.h>
 #include <stdio.h>
 
-#include "twiManager.h"
 #include "AD5933.h"
+#include "twiManager.h"
+#include "sweep.h"
 #include "flashManager.h"
 #include "usbManager.h"
 #include "rtcManager.h"
@@ -24,7 +25,7 @@
 
 #include "mem_manager.h"
 
-#ifdef DEBUG_AD5933
+#ifdef DEBUG_TASKS
 #include "nrf_log.h"
 #include "nrf_log_ctrl.h"
 #include "nrf_log_default_backends.h"

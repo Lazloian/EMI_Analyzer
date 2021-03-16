@@ -50,7 +50,7 @@
 		if (usbManager_sendSweep(freq, real, imag, &metadata))
 		{
 #ifdef DEBUG_TASKS
-			NRF_LOG_INFO("Sweep send from flash success");
+			NRF_LOG_INFO("TASKS: Sweep send from flash success");
 			NRF_LOG_FLUSH();
 #endif
 			res = true;
@@ -58,7 +58,7 @@
 		else
 		{
 #ifdef DEBUG_TASKS
-			NRF_LOG_INFO("Sweep send fail");
+			NRF_LOG_INFO("TASKS: Sweep send fail");
 			NRF_LOG_FLUSH();
 #endif
 		}
@@ -91,19 +91,19 @@
 	if (AD5933_Sweep(sweep, freq, real, imag))
 	{
 #ifdef DEBUG_TASKS
-		NRF_LOG_INFO("Sending Sweep");
+		NRF_LOG_INFO("TASKS: Sending Sweep");
 #endif
 		if (usbManager_sendSweep(freq, real, imag, &sweep->metadata))
 		{
 #ifdef DEBUG_TASKS
-			NRF_LOG_INFO("Sweep Send Success");
+			NRF_LOG_INFO("TASKS: Sweep Send Success");
 #endif
 			res = true;
 		}
 		else
 		{
 #ifdef DEBUG_TASKS
-			NRF_LOG_INFO("Sweep Send Fail");
+			NRF_LOG_INFO("TASKS: Sweep Send Fail");
 #endif
 		}
 #ifdef DEBUG_TASKS
@@ -144,7 +144,7 @@
 			*numSaved += 1;
 			flashManager_updateNumSweeps(numSaved);
 #ifdef DEBUG_TASKS
-			NRF_LOG_INFO("Sweep %d saved", *numSaved);
+			NRF_LOG_INFO("TASKS: Sweep %d saved", *numSaved);
 			NRF_LOG_FLUSH();
 #endif
 			res = true;
@@ -153,7 +153,7 @@
 		else
 		{
 #ifdef DEBUG_TASKS
-			NRF_LOG_INFO("Sweep save fail");
+			NRF_LOG_INFO("TASKS: Sweep save fail");
 			NRF_LOG_FLUSH();
 #endif
 		}
@@ -161,7 +161,7 @@
 	else
 	{
 #ifdef DEBUG_TASKS
-		NRF_LOG_INFO("Sweep save fail");
+		NRF_LOG_INFO("TASKS: Sweep save fail");
 		NRF_LOG_FLUSH();
 #endif
 	}
@@ -204,7 +204,7 @@ bool sensorTasks_init(void)
 {
   // init Log
 #ifdef DEBUG_TASKS
-  NRF_LOG_INFO("Task: Wireless Sensor Started");
+  NRF_LOG_INFO("TASKS: Wireless Sensor Started");
   NRF_LOG_FLUSH();
 #endif
 
@@ -225,6 +225,11 @@ bool sensorTasks_init(void)
 	
 	// init gpiote
 	if (!gpioteManager_init()) return false;
+	
+#ifdef DEBUG_TASKS
+	NRF_LOG_INFO("TASKS: Init Peripherals Success");
+  NRF_LOG_FLUSH();
+#endif
 
   // reset the AD5933
   if (AD5933_SetControl(NO_OPERATION, RANGE1, GAIN1, INTERN_CLOCK, 1))
@@ -233,13 +238,11 @@ bool sensorTasks_init(void)
 	}
 	else
 	{
-		return false;
-	}
-	
 #ifdef DEBUG_TASKS
-	NRF_LOG_INFO("Task: Init Success");
+	NRF_LOG_INFO("TASKS: AD5933 Init Fail");
   NRF_LOG_FLUSH();
 #endif
+	}
 	
 	// success
 	return true;

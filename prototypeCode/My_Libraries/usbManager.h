@@ -18,7 +18,7 @@
 #include "nrf.h"
 #include "nrf_drv_usbd.h"
 #include "nrf_drv_clock.h"
-#include "nrf_gpio.h"
+#include "nrf_delay.h"
 
 #include "app_usbd_core.h"
 #include "app_usbd.h"
@@ -29,7 +29,7 @@
 
 #include "boards.h"
 
-#include "AD5933.h"
+#include "sweep.h"
 
 #ifdef DEBUG_USB
 #include "nrf_log.h"
@@ -63,8 +63,8 @@ bool usbManager_readReady(void);
 bool usbManager_init(void);
 void usbManager_flush(void);
 
-void cdc_acm_user_ev_handler(app_usbd_class_inst_t const * p_inst, app_usbd_cdc_acm_user_event_t event);
-void usbd_user_ev_handler(app_usbd_event_type_t event);
+static void cdc_acm_user_ev_handler(app_usbd_class_inst_t const * p_inst, app_usbd_cdc_acm_user_event_t event);
+static void usbd_user_ev_handler(app_usbd_event_type_t event);
 static void init_usb(void);
 
 #endif

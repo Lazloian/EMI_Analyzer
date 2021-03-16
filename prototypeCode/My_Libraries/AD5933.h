@@ -10,16 +10,17 @@
 #ifndef INC_AD5933_H_
 #define INC_AD5933_H_
 
+#include <math.h>
+
 #include "nrf_delay.h"
 #include "twiManager.h"
+#include "sweep.h"
 
 #ifdef DEBUG_AD5933
 #include "nrf_log.h"
 #include "nrf_log_ctrl.h"
 #include "nrf_log_default_backends.h"
 #endif
-
-#include <math.h>
 
 // Clock Frequency (for calculations)
 // Internal clock is 16.776 MHz
@@ -97,36 +98,6 @@
 #define SET_POINTER     0xB0
 #define BLOCK_READ      0xA1
 #define BLOCK_WRITE     0xA0
-
-// struct to hold sweep metadata
-typedef struct sweepData
-{
-	uint32_t time;
-	uint16_t temp;
-	uint32_t numPoints;
-} MetaData;
-
-// struct to hold sweep parameters
-typedef struct sweepParams
-{
-  // sweep parameters
-  uint32_t start;           // the start frequency
-  uint32_t delta;           // the size of each increment
-  uint16_t steps;           // the number of increments
-  uint16_t cycles;          // the number of settling cycle times
-  uint8_t cyclesMultiplier; // the multiplier for the settling cycle times
-  uint8_t range;            // the output excitation voltage range
-  uint8_t clockSource;      // the source of the AD599's system clock
-  uint32_t clockFrequency;  // the frequency of the clock for the AD5933
-  uint8_t gain;          // the PGA gain of the input frequency
-
-  // sweep information
-  uint16_t currentStep;      // the current step the sweep is on
-  uint32_t currentFrequency; // the current frequency of the sweep
-	
-	// sweep metaData
-	MetaData metadata;
-} Sweep;
 
 // AD5933 user control functions
 bool AD5933_Sweep(Sweep * sweep, uint32_t * freq, uint16_t * real, uint16_t * imag);

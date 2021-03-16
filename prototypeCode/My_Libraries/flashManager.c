@@ -49,7 +49,7 @@ bool flashManager_deleteSweep(uint32_t sweep_num)
 bool flashManager_getSweep(uint32_t * freq, uint16_t * real, uint16_t * imag, MetaData * metadata, uint32_t sweep_num)
 {
 #ifdef DEBUG_FLASH
-	NRF_LOG_INFO("Starting get sweep");
+	NRF_LOG_INFO("FLASH: Starting get sweep");
 	NRF_LOG_FLUSH();
 #endif
 
@@ -81,7 +81,7 @@ bool flashManager_getSweep(uint32_t * freq, uint16_t * real, uint16_t * imag, Me
   if (!flashManager_readRecord(&record_desc, imag, sizeof(uint16_t) * metadata->numPoints)) return false;
 	
 #ifdef DEBUG_FLASH
-	NRF_LOG_INFO("Sweep get success");
+  NRF_LOG_INFO("FLASH: Sweep get success");
 	NRF_LOG_FLUSH();
 #endif
 	
@@ -100,7 +100,7 @@ bool flashManager_getSweep(uint32_t * freq, uint16_t * real, uint16_t * imag, Me
 bool flashManager_saveSweep(uint32_t * freq, uint16_t * real, uint16_t * imag, MetaData * metadata, uint32_t sweep_num)
 {
 #ifdef DEBUG_FLASH
-	NRF_LOG_INFO("Starting save sweep %d", sweep_num);
+	NRF_LOG_INFO("FLASH: Starting save sweep %d", sweep_num);
 	NRF_LOG_FLUSH();
 #endif
 
@@ -119,7 +119,7 @@ bool flashManager_saveSweep(uint32_t * freq, uint16_t * real, uint16_t * imag, M
   if (!flashManager_createRecord(&record_desc, sweep_num, SWEEP_METADATA, metadata, sizeof(MetaData))) return false;
 	
 #ifdef DEBUG_FLASH
-	NRF_LOG_INFO("Sweep save success");
+	NRF_LOG_INFO("FLASH: Sweep save success");
 	NRF_LOG_FLUSH();
 #endif
 	
@@ -136,7 +136,7 @@ bool flashManager_saveSweep(uint32_t * freq, uint16_t * real, uint16_t * imag, M
 bool flashManager_updateNumSweeps(uint32_t * num_sweeps)
 {
 #ifdef DEBUG_FLASH
-  NRF_LOG_INFO("Updating number of saved sweeps to %d", *num_sweeps);
+  NRF_LOG_INFO("FLASH: Updating number of saved sweeps to %d", *num_sweeps);
   NRF_LOG_FLUSH();
 #endif
 
@@ -162,7 +162,7 @@ bool flashManager_updateNumSweeps(uint32_t * num_sweeps)
 bool flashManager_updateSavedSweep(Sweep * sweep)
 {
 #ifdef DEBUG_FLASH
-  NRF_LOG_INFO("Updating the saved sweep");
+  NRF_LOG_INFO("FLASH: Updating the saved sweep");
   NRF_LOG_FLUSH();
 #endif
 
@@ -198,14 +198,14 @@ bool flashManager_checkConfig(uint32_t * num_sweeps, Sweep * sweep)
     // num sweeps record found, get its contents
     if (!flashManager_readRecord(&record_desc, num_sweeps, sizeof(uint32_t))) return false;
 #ifdef DEBUG_FLASH
-    NRF_LOG_INFO("Number of saved sweeps found, %d", *num_sweeps);
+    NRF_LOG_INFO("FLASH: Number of saved sweeps found, %d", *num_sweeps);
     NRF_LOG_FLUSH();
 #endif
   }
   else
   {
 #ifdef DEBUG_FLASH
-    NRF_LOG_INFO("Saved sweeps not found, creating record");
+    NRF_LOG_INFO("FLASH: Saved sweeps not found, creating record");
     NRF_LOG_FLUSH();
 #endif
     // num sweeps record not found, create one
@@ -218,14 +218,14 @@ bool flashManager_checkConfig(uint32_t * num_sweeps, Sweep * sweep)
     // sweep record found, get its contents
     if (!flashManager_readRecord(&record_desc, sweep, sizeof(Sweep))) return false;
 #ifdef DEBUG_FLASH
-    NRF_LOG_INFO("Saved sweep parameters found with starting frequency of %d Hz", sweep->start);
+    NRF_LOG_INFO("FLASH: Saved sweep parameters found with starting frequency of %d Hz", sweep->start);
     NRF_LOG_FLUSH();
 #endif
   }
   else
   {
 #ifdef DEBUG_FLASH
-    NRF_LOG_INFO("Saved sweep parameters not found, creating record");
+    NRF_LOG_INFO("FLASH: Saved sweep parameters not found, creating record");
     NRF_LOG_FLUSH();
 #endif
     // sweep record not found, create one
@@ -277,7 +277,7 @@ bool flashManager_init(void)
 static bool flashManager_createRecord(fds_record_desc_t * record_desc, uint32_t file_id, uint32_t record_key, void const * p_data, uint32_t num_bytes)
 {
 #ifdef DEBUG_FLASH
-  NRF_LOG_INFO("Writing %d bytes to record %d in file %d", num_bytes, record_key, file_id);
+  NRF_LOG_INFO("FLASH: Writing %d bytes to record %d in file %d", num_bytes, record_key, file_id);
   NRF_LOG_FLUSH();
 #endif
 
@@ -298,7 +298,7 @@ static bool flashManager_createRecord(fds_record_desc_t * record_desc, uint32_t 
   if ((ret != NRF_SUCCESS) && (ret == FDS_ERR_NO_SPACE_IN_FLASH))
   {
 #ifdef DEBUG_FLASH
-    NRF_LOG_INFO("Flash full, write record fail", record_key, file_id);
+    NRF_LOG_INFO("FLASH: Flash full, write record fail", record_key, file_id);
     NRF_LOG_FLUSH();
 #endif
     return false;
@@ -309,7 +309,7 @@ static bool flashManager_createRecord(fds_record_desc_t * record_desc, uint32_t 
   }
 
 #ifdef DEBUG_FLASH
-  NRF_LOG_INFO("Write record success", record_key, file_id);
+  NRF_LOG_INFO("FLASH: Write record success", record_key, file_id);
   NRF_LOG_FLUSH();
 #endif
   return true;
@@ -327,7 +327,7 @@ static bool flashManager_createRecord(fds_record_desc_t * record_desc, uint32_t 
 static bool flashManager_updateRecord(fds_record_desc_t * record_desc, uint32_t file_id, uint32_t record_key, void const * p_data, uint32_t num_bytes)
 {
 #ifdef DEBUG_FLASH
-  NRF_LOG_INFO("Updating record %d at file %d", record_key, file_id);
+  NRF_LOG_INFO("FLASH: Updating record %d at file %d", record_key, file_id);
   NRF_LOG_FLUSH();
 #endif
 
@@ -348,7 +348,7 @@ static bool flashManager_updateRecord(fds_record_desc_t * record_desc, uint32_t 
   if ((ret != NRF_SUCCESS) && (ret == FDS_ERR_NO_SPACE_IN_FLASH))
   {
 #ifdef DEBUG_FLASH
-    NRF_LOG_INFO("Flash full, write record fail", record_key, file_id);
+    NRF_LOG_INFO("FLASH: Flash full, write record fail", record_key, file_id);
     NRF_LOG_FLUSH();
 #endif
     return false;
@@ -359,7 +359,7 @@ static bool flashManager_updateRecord(fds_record_desc_t * record_desc, uint32_t 
   }
 
 #ifdef DEBUG_FLASH
-  NRF_LOG_INFO("Write record success", record_key, file_id);
+  NRF_LOG_INFO("FLASH: Write record success", record_key, file_id);
   NRF_LOG_FLUSH();
 #endif
   return true;
@@ -376,7 +376,7 @@ static bool flashManager_updateRecord(fds_record_desc_t * record_desc, uint32_t 
 static bool flashManager_readRecord(fds_record_desc_t * record_desc, void * buff, uint32_t num_bytes)
 {
 #ifdef DEBUG_FLASH
-  NRF_LOG_INFO("Reading from record");
+  NRF_LOG_INFO("FLASH: Reading from record");
   NRF_LOG_FLUSH();
 #endif
   // create a new flash_record struct
@@ -391,7 +391,7 @@ static bool flashManager_readRecord(fds_record_desc_t * record_desc, void * buff
   if (ret != NRF_SUCCESS) 
   {
 #ifdef DEBUG_FLASH
-    NRF_LOG_INFO("Error opening file: %s", fds_err_str(ret));
+    NRF_LOG_INFO("FLASH: Error opening file: %s", fds_err_str(ret));
     NRF_LOG_FLUSH();
 #endif
     return false;
@@ -404,7 +404,7 @@ static bool flashManager_readRecord(fds_record_desc_t * record_desc, void * buff
   if (fds_record_close(record_desc) != NRF_SUCCESS) return false;
 
 #ifdef DEBUG_FLASH
-  NRF_LOG_INFO("Read success");
+  NRF_LOG_INFO("FLASH: Read success");
   NRF_LOG_FLUSH();
 #endif
 
@@ -427,14 +427,14 @@ static bool flashManager_findRecord(fds_record_desc_t * record_desc, uint32_t fi
   memset(&ftok, 0x00, sizeof(fds_find_token_t));
 
 #ifdef DEBUG_FLASH
-  NRF_LOG_INFO("Looking for record %x in file %x", record_key, file_id);
+  NRF_LOG_INFO("FLASH: Looking for record %x in file %x", record_key, file_id);
   NRF_LOG_FLUSH();
 #endif
   // find the record, if fail return false
   if (fds_record_find(file_id, record_key, record_desc, &ftok) == NRF_SUCCESS)
   {
 #ifdef DEBUG_FLASH
-    NRF_LOG_INFO("Record found");
+    NRF_LOG_INFO("FLASH: Record found");
     NRF_LOG_FLUSH();
 #endif
     return true;
@@ -442,7 +442,7 @@ static bool flashManager_findRecord(fds_record_desc_t * record_desc, uint32_t fi
   else
   {
 #ifdef DEBUG_FLASH
-    NRF_LOG_INFO("Record not found");
+    NRF_LOG_INFO("FLASH: Record not found");
     NRF_LOG_FLUSH();
 #endif
     return false;
@@ -458,13 +458,13 @@ static bool flashManager_findRecord(fds_record_desc_t * record_desc, uint32_t fi
 static bool flashManager_deleteRecord(fds_record_desc_t * record_desc)
 {
 #ifdef DEBUG_FLASH
-  NRF_LOG_INFO("Deleting record");
+  NRF_LOG_INFO("FLASH: Deleting record");
   NRF_LOG_FLUSH();
 #endif
   if (fds_record_delete(record_desc) != NRF_SUCCESS)
   {
 #ifdef DEBUG_FLASH
-    NRF_LOG_INFO("Record delete fail");
+    NRF_LOG_INFO("FLASH: Record delete fail");
     NRF_LOG_FLUSH();
 #endif
     return false;
@@ -482,13 +482,13 @@ static bool flashManager_deleteRecord(fds_record_desc_t * record_desc)
 bool flashManager_deleteFile(uint32_t file_id)
 {
 #ifdef DEBUG_FLASH
-  NRF_LOG_INFO("Deleting file %x", file_id);
+  NRF_LOG_INFO("FLASH: Deleting file %x", file_id);
   NRF_LOG_FLUSH();
 #endif
   if (fds_file_delete(file_id) != NRF_SUCCESS)
   {
 #ifdef DEBUG_FLASH
-    NRF_LOG_INFO("File delete fail");
+    NRF_LOG_INFO("FLASH: File delete fail");
     NRF_LOG_FLUSH();
 #endif
     return false;
@@ -530,14 +530,14 @@ static void fds_evt_handler(fds_evt_t const * p_evt)
   if (p_evt->result == NRF_SUCCESS)
   {
 #ifdef DEBUG_FLASH
-    NRF_LOG_INFO("Event: %s received (NRF_SUCCESS)",
+    NRF_LOG_INFO("FLASH: Event: %s received (NRF_SUCCESS)",
         fds_evt_str[p_evt->id]);
 #endif
   }
   else
   {
 #ifdef DEBUG_FLASH
-    NRF_LOG_INFO("Event: %s received (%s)",
+    NRF_LOG_INFO("FLASH: Event: %s received (%s)",
         fds_evt_str[p_evt->id],
         fds_err_str(p_evt->result));
 #endif
@@ -557,9 +557,9 @@ static void fds_evt_handler(fds_evt_t const * p_evt)
         if (p_evt->result == NRF_SUCCESS)
         {
 #ifdef DEBUG_FLASH
-          NRF_LOG_INFO("Record ID:\t0x%04x",  p_evt->write.record_id);
-          NRF_LOG_INFO("File ID:\t0x%04x",    p_evt->write.file_id);
-          NRF_LOG_INFO("Record key:\t0x%04x", p_evt->write.record_key);
+          NRF_LOG_INFO("FLASH: Record ID:\t0x%04x",  p_evt->write.record_id);
+          NRF_LOG_INFO("FLASH: File ID:\t0x%04x",    p_evt->write.file_id);
+          NRF_LOG_INFO("FLASH: Record key:\t0x%04x", p_evt->write.record_key);
 #endif
         }
       } break;
@@ -569,9 +569,9 @@ static void fds_evt_handler(fds_evt_t const * p_evt)
         if (p_evt->result == NRF_SUCCESS)
         {
 #ifdef DEBUG_FLASH
-          NRF_LOG_INFO("Record ID:\t0x%04x",  p_evt->del.record_id);
-          NRF_LOG_INFO("File ID:\t0x%04x",    p_evt->del.file_id);
-          NRF_LOG_INFO("Record key:\t0x%04x", p_evt->del.record_key);
+          NRF_LOG_INFO("FLASH: Record ID:\t0x%04x",  p_evt->del.record_id);
+          NRF_LOG_INFO("FLASH: File ID:\t0x%04x",    p_evt->del.file_id);
+          NRF_LOG_INFO("FLASH: Record key:\t0x%04x", p_evt->del.record_key);
 #endif
         }
       } break;

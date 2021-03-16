@@ -22,7 +22,7 @@
 #include "app_timer.h"
 #include "fds.h"
 
-#include "AD5933.h"
+#include "sweep.h"
 
 #ifdef DEBUG_FLASH
 #include "nrf_log.h"

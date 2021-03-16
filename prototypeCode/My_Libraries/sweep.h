@@ -10,6 +10,11 @@
 #ifndef INC_SWEEP_H_
 #define INC_SWEEP_H_
 
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
+#include <stdio.h>
+
 // struct to hold sweep metadata
 typedef struct sweepData
 {

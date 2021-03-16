@@ -11,11 +11,12 @@ APP_USBD_CDC_ACM_GLOBAL_DEF(m_app_cdc_acm,
     APP_USBD_CDC_COMM_PROTOCOL_AT_V250
     );
 
+// buffer used to read from usb
 static uint8_t m_rx_buffer[READ_SIZE];
 
 // Indicates if USB rx has occured
 static volatile bool rx_ready = false;
-static volatile bool tx_ready = false;
+//static volatile bool tx_ready = false;
 
 
 // Sends a sweep over usb given the sweep data
@@ -36,7 +37,7 @@ bool usbManager_sendSweep(uint32_t * freq, uint16_t * real , uint16_t * imag, Me
   uint16_t current = 0;  // keeps track of the current data point
 
 #ifdef DEBUG_USB
-  NRF_LOG_INFO("Sending sweep over usb");
+  NRF_LOG_INFO("USB: Sending sweep over usb");
   NRF_LOG_FLUSH();
 #endif
 	
@@ -79,8 +80,8 @@ bool usbManager_sendSweep(uint32_t * freq, uint16_t * real , uint16_t * imag, Me
 
 #ifdef DEBUG_USB
 	if (ret) 
-	{ NRF_LOG_INFO("Sweep Send Success") }
-	else NRF_LOG_INFO("Sweep Send Fail");
+	{ NRF_LOG_INFO("USB: Sweep Send Success") }
+	else NRF_LOG_INFO("USB: Sweep Send Fail");
 	NRF_LOG_FLUSH();
 #endif
   return ret;
@@ -96,7 +97,7 @@ bool usbManager_sendSweep(uint32_t * freq, uint16_t * real , uint16_t * imag, Me
 bool usbManager_writeBytes(void * buff, uint32_t numBytes)
 {
 #ifdef DEBUG_USB
-  NRF_LOG_INFO("Writing %d bytes over usb", numBytes);
+  NRF_LOG_INFO("USB: Writing %d bytes over usb", numBytes);
   NRF_LOG_FLUSH();
 #endif
 
@@ -106,17 +107,14 @@ bool usbManager_writeBytes(void * buff, uint32_t numBytes)
   if (numBytes >= NRF_DRV_USBD_EPSIZE)
   {
 #ifdef DEBUG_USB
-    NRF_LOG_INFO("Write too large. Not writing.");
+    NRF_LOG_INFO("USB: Write too large. Not writing.");
     NRF_LOG_FLUSH();
 #endif
     return false;
   }
-  
-  // wait till tx_ready
-  // while (!tx_ready);
 
   // reset tx_ready
-  tx_ready = false;
+  //tx_ready = false;
 
   // write the bytes
 	ret = app_usbd_cdc_acm_write(&m_app_cdc_acm, buff, numBytes);
@@ -126,14 +124,14 @@ bool usbManager_writeBytes(void * buff, uint32_t numBytes)
   {
 		if (ret == NRF_ERROR_BUSY)
 #ifdef DEBUG_USB
-    NRF_LOG_INFO("USB Write Fail %x", ret);
+    NRF_LOG_INFO("USB: USB Write Fail %x", ret);
     NRF_LOG_FLUSH();
 #endif
     return false;
   }
 
 #ifdef DEBUG_USB
-    NRF_LOG_INFO("USB Write Success");
+    NRF_LOG_INFO("USB: USB Write Success");
     NRF_LOG_FLUSH();
 #endif
   // success
@@ -152,7 +150,7 @@ bool usbManager_writeBytes(void * buff, uint32_t numBytes)
 bool usbManager_readBytes(void * buff, uint32_t numBytes)
 {
 #ifdef DEBUG_USB
-  NRF_LOG_INFO("Reading %d bytes over usb", numBytes);
+  NRF_LOG_INFO("USB: Reading %d bytes over usb", numBytes);
   NRF_LOG_FLUSH();
 #endif
 
@@ -165,7 +163,7 @@ bool usbManager_readBytes(void * buff, uint32_t numBytes)
   if (ret != NRF_SUCCESS)
   {
 #ifdef DEBUG_USB
-    NRF_LOG_INFO("USB Read Fail");
+    NRF_LOG_INFO("USB: USB Read Fail");
     NRF_LOG_FLUSH();
 #endif
     return false;
@@ -177,7 +175,7 @@ bool usbManager_readBytes(void * buff, uint32_t numBytes)
   rx_ready = false;
 
 #ifdef DEBUG_USB
-    NRF_LOG_INFO("USB Read Success");
+    NRF_LOG_INFO("USB: USB Read Success");
     NRF_LOG_FLUSH();
 #endif
 
@@ -237,7 +235,7 @@ bool usbManager_readReady(void)
 bool usbManager_init(void)
 {
 #ifdef DEBUG_USB
-	NRF_LOG_INFO("USB Init");
+	NRF_LOG_INFO("USB: USB Init");
 	NRF_LOG_FLUSH();
 #endif
 
@@ -250,7 +248,7 @@ bool usbManager_init(void)
 
 
 // USB event handler
-void cdc_acm_user_ev_handler(app_usbd_class_inst_t const * p_inst,
+static void cdc_acm_user_ev_handler(app_usbd_class_inst_t const * p_inst,
     app_usbd_cdc_acm_user_event_t event)
 {
   app_usbd_cdc_acm_t const * p_cdc_acm = app_usbd_cdc_acm_class_get(p_inst);
@@ -259,7 +257,7 @@ void cdc_acm_user_ev_handler(app_usbd_class_inst_t const * p_inst,
   {
     case APP_USBD_CDC_ACM_USER_EVT_PORT_OPEN:
       {
-        tx_ready = true;
+        // tx_ready = true;
         /*Setup first transfer*/
         ret_code_t ret = app_usbd_cdc_acm_read(&m_app_cdc_acm, m_rx_buffer, READ_SIZE);
         UNUSED_VARIABLE(ret);
@@ -267,13 +265,13 @@ void cdc_acm_user_ev_handler(app_usbd_class_inst_t const * p_inst,
       }
     case APP_USBD_CDC_ACM_USER_EVT_PORT_CLOSE:
 		{
-			tx_ready = false;
+			//tx_ready = false;
       rx_ready = false;
       break;
 		}
     case APP_USBD_CDC_ACM_USER_EVT_TX_DONE:
 		{
-			tx_ready = true;
+			//tx_ready = true;
       break;
 		}
     case APP_USBD_CDC_ACM_USER_EVT_RX_DONE:
@@ -288,7 +286,7 @@ void cdc_acm_user_ev_handler(app_usbd_class_inst_t const * p_inst,
 }
 
 // USB driver event handler
-void usbd_user_ev_handler(app_usbd_event_type_t event)
+static void usbd_user_ev_handler(app_usbd_event_type_t event)
 {
   switch (event)
   {
