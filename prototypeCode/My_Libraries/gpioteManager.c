@@ -9,9 +9,31 @@
 
 #include "gpioteManager.h"
 
+static volatile bool gpiote_event = false;
+static volatile int button;
+
+// returns true if a gpiote event occured and stores the button that made the event happen in buff
+bool gpioteManager_getEvent(int * buff)
+{
+	if (gpiote_event)
+	{
+		* buff = button;
+		gpiote_event = false;
+		return true;
+	}
+	else
+	{
+		return false;
+	}
+}
+
 bool gpioteManager_writePin(uint32_t pin, uint8_t val)
 {
-	if (val)
+	if (val == 2)
+	{
+		nrf_drv_gpiote_out_toggle(pin);
+	}
+	else if (val)
 	{
 		nrf_drv_gpiote_out_set(pin);
 	}
@@ -30,16 +52,16 @@ bool gpioteManager_init(void)
 
 void in_pin_handler(nrf_drv_gpiote_pin_t pin, nrf_gpiote_polarity_t action)
 {
+	// indicate that a gpiote event has occured
+	gpiote_event = true;
 	// check which button
 	if (pin == BUTTON_START && action == GPIOTE_CONFIG_POLARITY_HiToLo)
 	{
-		rtcManager_enable();
-		nrf_drv_gpiote_out_clear(LED_RTC);
+		button = BUTTON_START;
 	}
 	else if (pin == BUTTON_STOP && action == GPIOTE_CONFIG_POLARITY_HiToLo)
 	{
-		rtcManager_disable();
-		nrf_drv_gpiote_out_set(LED_RTC);
+		button = BUTTON_STOP;
 	}
 }
 
@@ -63,6 +85,10 @@ static void gpiote_init(void)
 	
 	// set up SWEEP AD5933
 	err_code = nrf_drv_gpiote_out_init(LED_AD5933, &out_config);
+	APP_ERROR_CHECK(err_code);
+	
+	// set up USB LED
+	err_code = nrf_drv_gpiote_out_init(LED_USB, &out_config);
 	APP_ERROR_CHECK(err_code);
 
 	// set up button input, true means that the interrupt is enabled

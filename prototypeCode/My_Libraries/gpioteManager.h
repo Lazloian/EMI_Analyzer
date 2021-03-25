@@ -31,6 +31,7 @@
 #define LED_SWEEP  (BSP_LED_2) // LED to signal if sweep is being done
 #define LED_AD5933 (BSP_LED_3) // LED to singal if the AD5933 is connected
 
+bool gpioteManager_getEvent(int * buff);
 bool gpioteManager_writePin(uint32_t pin, uint8_t val);
 bool gpioteManager_init(void);
 static void in_pin_handler(nrf_drv_gpiote_pin_t pin, nrf_gpiote_polarity_t action);

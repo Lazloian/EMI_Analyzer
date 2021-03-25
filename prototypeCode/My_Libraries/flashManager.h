@@ -14,6 +14,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <string.h>
 
 #include "nrf.h"
 #include "nrf_drv_clock.h"

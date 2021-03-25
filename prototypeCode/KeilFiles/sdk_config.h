@@ -954,7 +954,7 @@
  
 
 #ifndef NRFX_RTC0_ENABLED
-#define NRFX_RTC0_ENABLED 1
+#define NRFX_RTC0_ENABLED 0
 #endif
 
 // <q> NRFX_RTC1_ENABLED  - Enable RTC1 instance

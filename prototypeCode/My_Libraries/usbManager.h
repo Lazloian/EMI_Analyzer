@@ -60,6 +60,7 @@ bool usbManager_getByte(uint8_t * buff);
 bool usbManager_writeBytes(void * buff, uint32_t numBytes);
 bool usbManager_readBytes(void * buff, uint32_t numBytes);
 bool usbManager_readReady(void);
+bool usbManager_checkUSB(void);
 bool usbManager_init(void);
 void usbManager_flush(void);
 

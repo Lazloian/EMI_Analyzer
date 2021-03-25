@@ -1,7 +1,5 @@
 /*
- * This program takes commands from a python script and sends back impedance data
- * over usb
- *
+ * Wireless Sensor main file
  */
 
 // standard includes
@@ -13,6 +11,11 @@
 #include "nrf.h"
 #include "app_error.h"
 #include "app_util.h"
+
+// FreeRTOS includes
+#include "FreeRTOS.h"
+#include "task.h"
+#include "timers.h"
 
 // logging includes
 #ifdef DEBUG_LOG
@@ -26,8 +29,9 @@
 #include "AD5933.h"
 #include "flashManager.h"
 #include "usbManager.h"
-#include "rtcManager.h"
+//#include "rtcManager.h"
 #include "gpioteManager.h"
+#include "sensorFunctions.h"
 #include "sensorTasks.h"
 
 // variable to store the number of saved sweeps
@@ -46,14 +50,27 @@ int main(void)
 #endif
 	
 	// init peripherals for tasks
-	sensorTasks_init();
-
-  // set the sweep to default parameters
-  sensorTasks_set_default(&sweep);
+	sensorFunctions_init();
+	
+	// set the sweep to default parameters
+  sensorFunctions_set_default(&sweep);
 	
 	// load the config files from flash
 	flashManager_checkConfig(&numSaved, &sweep);
 	
+	// set the sweep to default parameters
+  sensorFunctions_set_default(&sweep);
+	
+	// set the sweep to the current default
+	flashManager_updateSavedSweep(&sweep);
+	
+	// Go into low power mode
+	__WFE();
+	
+	// init the tasks
+	sensorTasks_init(); // this function should never return
+	
+	// SHOULD NEVER RUN THE BELOW CODE
 	// variable to know what sweeps have been sent
 	uint32_t pointer = 0;
 	
@@ -61,57 +78,58 @@ int main(void)
 	
   while (true)
   {
-		if (rtcManager_checkCompare())
+		if (true)
 		{
-			gpioteManager_writePin(LED_SWEEP, 0);
-			nrf_delay_ms(100);
-			gpioteManager_writePin(LED_SWEEP, 1);
-			gpioteManager_writePin(LED_RTC, 1);
-			gpioteManager_writePin(LED_AD5933, 1);
-			
-			sensorTasks_saveSweep(&sweep, &numSaved, false);
-		}
-			
-		// check if usb data is available, if it is get the first command
-		if (usbManager_readReady() && usbManager_getByte(command))
-		{
-			NRF_LOG_INFO("%x", command[0]);
+#ifdef DEBUG_LOG
+			NRF_LOG_INFO("I should not be here");
 			NRF_LOG_FLUSH();
+#endif
+			nrf_delay_ms(1000);
+		}
+		else
+		{
 			
-			// read the config file
-			// send the number of saved sweeps
-			if (command[0] == 1)
+			// check if usb data is available, if it is get the first command
+			if (usbManager_readReady() && usbManager_getByte(command))
 			{
-				sensorTasks_sendConfig(&sweep, &numSaved);
+				// update the sweep and numSaved
+				flashManager_checkConfig(&numSaved, &sweep);
 				
-				// also reset the pointer here
-				pointer = numSaved;
+				// read the config file
+				// send the number of saved sweeps
+				if (command[0] == 1)
+				{
+					sensorFunctions_sendConfig(&sweep, &numSaved);
+					
+					// also reset the pointer here
+					pointer = numSaved;
+				}
+				// execute a sweep and save to flash
+				else if (command[0] == 2)
+				{
+					// this command was sent by usb, so usb in the function call is true
+					sensorFunctions_saveSweep(&sweep, &numSaved, true);
+				}
+				// execute a sweep and immedietly send it over usb, do not save to flash
+				else if (command[0] == 3)
+				{
+					sensorFunctions_sweepAndSend(&sweep);
+				}
+				// send the pointer sweep over usb
+				else if (command[0] == 4)
+				{
+					// if pointer is at file 0, set it at the most recent sweep saved
+					if (pointer == 0) pointer = numSaved;
+					
+					// send the sweep at pointer
+					sensorFunctions_sendSweep(pointer);
+					
+					// move pointer down
+					pointer--;
+				}
 			}
-			// execute a sweep and save to flash
-			else if (command[0] == 2)
-			{
-				// this command was sent by usb, so usb in the function call is true
-				sensorTasks_saveSweep(&sweep, &numSaved, true);
-			}
-			// execute a sweep and immedietly send it over usb, do not save to flash
-			else if (command[0] == 3)
-			{
-		    sensorTasks_sweepAndSend(&sweep);
-			}
-			// send the pointer sweep over usb
-			else if (command[0] == 4)
-			{
-				// if pointer is at file 0, set it at the most recent sweep saved
-				if (pointer == 0) pointer = numSaved;
-				
-				// send the sweep at pointer
-				sensorTasks_sendSweep(pointer);
-				
-				// move pointer down
-				pointer--;
-			}
-    }
-    // Sleep CPU only if there was no interrupt since last loop processing
-    __WFE();
+			// Sleep CPU only if there was no interrupt since last loop processing
+			__WFE();
+		}
 	}
 }

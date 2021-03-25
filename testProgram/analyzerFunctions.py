@@ -26,6 +26,7 @@ def save_sweeps(gain):
     for i in range(numSaved, 0, -1):
         print(f'Saving Sweep #{i}')
         data = get_sweep(fromFlash=True)
+        print('Data Transferred. Processing ...')
         data = calc_impedance(data, gain)
         df = create_dataframe(data)
         print(df)

@@ -9,7 +9,7 @@
  
  #include "rtcManager.h"
  
-static const nrf_drv_rtc_t rtc = NRF_DRV_RTC_INSTANCE(0); // Declaring an instance of nrf_drv_rtc for RTC0.
+static const nrf_drv_rtc_t rtc = NRF_DRV_RTC_INSTANCE(2); // Declaring an instance of nrf_drv_rtc for RTC2.
 static uint32_t compares = 1; 													 // To keep track of the number of compare events triggered
 static volatile bool compare_triggered = false; 				// Saves if a compare event has been triggered
 

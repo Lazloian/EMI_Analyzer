@@ -1,249 +1,227 @@
 /*
  *  sensorTasks.c
  *
- *  Contains all the tasks the sensor will execute
+ *  Contains all the tasks that will be run by FreeRTOS
  *
  *  Author: Henry Silva
  *
  */
  
- #include "sensorTasks.h"
- 
-// Checks and sends the number of saved sweeps over usb
-// Arguments: 
-//	* sweep    : The sweep to execute
-//	* numSaved : The number of sweeps currently saved
-// Return value:
-//  false if error
-//  true  if success
- bool sensorTasks_sendConfig(Sweep * sweep, uint32_t * numSaved)
- {
-	// check and update from the config file
-	if (!flashManager_checkConfig(numSaved, sweep)) return false;
-	 
-	// send the number of saved sweeps
-	if (!usbManager_writeBytes(numSaved, sizeof(numSaved))) return false;
-	 
-	// success
-	return true;
- }
- 
-// Gets a sweep from flash and sends it over usb
-// Arguments: 
- //	sweepNum : The number of file that the sweep is located in
-// Return value:
-//  false if error
-//  true  if success
- bool sensorTasks_sendSweep(uint32_t sweepNum)
- {
-	bool res = false; 				// stores the result
-	MetaData metadata = {0}; // store the sweep metadata
-	 
-  // allocate memory for sweeps
-	uint32_t * freq = nrf_malloc(MAX_FREQ_SIZE);
-	uint16_t * real = nrf_malloc(MAX_IMP_SIZE);
-	uint16_t * imag = nrf_malloc(MAX_IMP_SIZE);
+#include "sensorTasks.h"
+
+static TaskHandle_t inputTask_handle;
+static TaskHandle_t sweepTask_handle;
+static TaskHandle_t blinkTask_handle;
+static TaskHandle_t usbTask_handle;
+
+// Task for detecting input. Resumes and suspends tasks depending on the button pressed
+void sensorTasks_input(void * pvParameter)
+{
+	int button; // stores the button that has been most recently pressed
+	
+	bool sweeping = false; // keeps track of state of measurements
+	
+	for (;;)
+	{
+		// check if a button has been pressed
+		if (gpioteManager_getEvent(&button))
+		{
+			// start the sweep task
+			if (button == BUTTON_START && !sweeping)
+			{
+#ifdef DEBUG_TASKS
+				NRF_LOG_INFO("TASKS: Starting sweeps");
+				NRF_LOG_FLUSH();
+#endif
+				sweeping = true;
+
+        // resume the blink task
+        vTaskResume(blinkTask_handle);
+				
+				// resume the sweep task
+        vTaskResume(sweepTask_handle);
+			}
+			// suspend the sweep task
+			else if (button == BUTTON_STOP && sweeping)
+			{
+#ifdef DEBUG_TASKS
+				NRF_LOG_INFO("TASKS: Stopping sweeps");
+				NRF_LOG_FLUSH();
+#endif	
+				sweeping = false;
+
+        // suspend the sweep task
+        vTaskSuspend(sweepTask_handle);
+
+        // suspend the blink task
+        vTaskSuspend(blinkTask_handle);
+			}
+		}
 		
-	// get the sweep data from flash
-	if (flashManager_getSweep(freq, real, imag, &metadata, sweepNum))
-	{
-		if (usbManager_sendSweep(freq, real, imag, &metadata))
-		{
-#ifdef DEBUG_TASKS
-			NRF_LOG_INFO("TASKS: Sweep send from flash success");
-			NRF_LOG_FLUSH();
-#endif
-			res = true;
-		}
-		else
-		{
-#ifdef DEBUG_TASKS
-			NRF_LOG_INFO("TASKS: Sweep send fail");
-			NRF_LOG_FLUSH();
-#endif
-		}
+		// delay the task
+		vTaskDelay(MS_TO_TICK(INPUT_PERIOD));
 	}
-	
-	// free memory
-	nrf_free(freq);
-	nrf_free(real);
-	nrf_free(imag);
-	
-	return res;
- }
- 
-// Executes a sweep and sends it over usb without saving
-// Arguments: 
-//	* sweep    : The sweep to execute
-// Return value:
-//  false if error sending sweep
-//  true  if sweep sent successfully
- bool sensorTasks_sweepAndSend(Sweep * sweep)
- {
-	bool res = false; // stores the result 
-	 
-	// allocate memory for sweeps
-	uint32_t * freq = nrf_malloc(MAX_FREQ_SIZE);
-	uint16_t * real = nrf_malloc(MAX_IMP_SIZE);
-	uint16_t * imag = nrf_malloc(MAX_IMP_SIZE);
-	
-	// execute the sweep
-	if (AD5933_Sweep(sweep, freq, real, imag))
-	{
-#ifdef DEBUG_TASKS
-		NRF_LOG_INFO("TASKS: Sending Sweep");
-#endif
-		if (usbManager_sendSweep(freq, real, imag, &sweep->metadata))
-		{
-#ifdef DEBUG_TASKS
-			NRF_LOG_INFO("TASKS: Sweep Send Success");
-#endif
-			res = true;
-		}
-		else
-		{
-#ifdef DEBUG_TASKS
-			NRF_LOG_INFO("TASKS: Sweep Send Fail");
-#endif
-		}
-#ifdef DEBUG_TASKS
-		NRF_LOG_FLUSH();
-#endif
-	}
-	
-	// free the memory
-	nrf_free(freq);
-	nrf_free(real);
-	nrf_free(imag);
-	
-	return res;
- }
- 
-// Executes a sweep and saves it to flash
-// Arguments: 
-//	* sweep    : The sweep to execute
-//	* numSaved : The number of sweeps currently saved
-// Return value:
-//  false if error saving sweep
-//  true  if sweep saved successfully
- bool sensorTasks_saveSweep(Sweep * sweep, uint32_t * numSaved, bool usb)
-{
-	// allocate memory for sweep data
-	uint32_t * freq = nrf_malloc(MAX_FREQ_SIZE);
-	uint16_t * real = nrf_malloc(MAX_IMP_SIZE);
-	uint16_t * imag = nrf_malloc(MAX_IMP_SIZE);
-	
-	bool res = false; // to save if success
-	
-	uint8_t buff[1] = {1}; // to save the result for usb
-
-	if (AD5933_Sweep(sweep, freq, real, imag))
-	{
-		if (flashManager_saveSweep(freq, real, imag, &sweep->metadata, *numSaved + 1))
-		{
-			*numSaved += 1;
-			flashManager_updateNumSweeps(numSaved);
-#ifdef DEBUG_TASKS
-			NRF_LOG_INFO("TASKS: Sweep %d saved", *numSaved);
-			NRF_LOG_FLUSH();
-#endif
-			res = true;
-			buff[0] = 2;
-		}
-		else
-		{
-#ifdef DEBUG_TASKS
-			NRF_LOG_INFO("TASKS: Sweep save fail");
-			NRF_LOG_FLUSH();
-#endif
-		}
-	}
-	else
-	{
-#ifdef DEBUG_TASKS
-		NRF_LOG_INFO("TASKS: Sweep save fail");
-		NRF_LOG_FLUSH();
-#endif
-	}
-	
-	// send result over usb if usb is true
-	if (usb) usbManager_writeBytes(buff, 1);
-	
-	// free the memory
-	nrf_free(freq);
-	nrf_free(real);
-	nrf_free(imag);
-	
-	return res;
 }
 
-void sensorTasks_set_default(Sweep * sweep)
+// Task for conducting sweeps at a certain time
+void sensorTasks_sweep(void * pvParameter)
 {
-  // set the default sweep parameters
-  sweep->start 							= 1000;
-  sweep->delta 							= 100;
-  sweep->steps 							= 490;
-  sweep->cycles 						= 511;
-  sweep->cyclesMultiplier 	= TIMES4;
-  sweep->range 							= RANGE1;
-  sweep->clockSource 				= INTERN_CLOCK;
-  sweep->clockFrequency 		= CLK_FREQ;
-  sweep->gain 							= GAIN1;
-	sweep->metadata.numPoints = sweep->steps + 1;
-	sweep->metadata.temp			= 100;
-	sweep->metadata.time			= 30;
+	TickType_t lastWakeTime; 								 // keeps track of the time the task woke up
+	
+	Sweep sweep;				// sweep to run
+	uint32_t numSaved; // number of sweeps saved
 
-  return;
+  // this task starts suspended
+  vTaskSuspend(NULL);
+	
+	for (;;)
+	{
+#ifdef DEBUG_TASKS
+				NRF_LOG_INFO("TASKS: Executing Sweep");
+				NRF_LOG_FLUSH();
+#endif
+		// get the current tick count
+		lastWakeTime = xTaskGetTickCount();
+		
+		// turn on sweep LED
+		gpioteManager_writePin(LED_SWEEP, 0);
+		
+		// get the sweep and numSaved from flash
+		if (flashManager_checkConfig(&numSaved, &sweep))
+		{
+			// save a sweep to flash
+			sensorFunctions_saveSweep(&sweep, &numSaved, false);
+		}
+		// turn off sweep LED
+		gpioteManager_writePin(LED_SWEEP, 1);
+
+#ifdef DEBUG_TASKS
+				NRF_LOG_INFO("TASKS: Sweep Executed");
+				NRF_LOG_FLUSH();
+#endif
+		
+		// delay until a period of time has passed from the start of the sweep
+		// vTaskDelayUntil is used because a sweep may take up to a minute to complete
+		// This time must be accounted for when determining the time to the next sweep
+		vTaskDelayUntil(&lastWakeTime, SEC_TO_TICK(SWEEP_PERIOD));
+	}
+	
 }
 
-// inits all the required managers and peripherals for the wireless sensor
+// Task to blink the LED to indicate that the device is running
+void sensorTasks_blink(void * pvParameter)
+{
+  // this task starts suspended
+  vTaskSuspend(NULL);
+
+	for (;;)
+	{
+#ifdef DEBUG_TASKS
+				NRF_LOG_INFO("TASKS: Blink");
+				NRF_LOG_FLUSH();
+#endif
+		// blink the rtc led
+		gpioteManager_writePin(LED_RTC, 0);
+		vTaskDelay(MS_TO_TICK(100));
+		gpioteManager_writePin(LED_RTC, 1);
+		
+		// wait
+		vTaskDelay(SEC_TO_TICK(BLINK_PERIOD));
+	}
+}
+
+void sensorTasks_usb(void *pvParameter)
+{
+	Sweep sweep;						// the sweep stored in flash
+	uint32_t numSaved; 		 // number of sweeps saved
+	uint32_t pointer = 0; // the number of the sweep to be sent next
+	uint8_t command[1];  // the command from usb
+	
+	for (;;)
+	{
+		// check if a usb device is plugged in
+		while (usbManager_checkUSB())
+		{
+			// check if usb data is available, if it is get the first command
+			if (usbManager_readReady() && usbManager_getByte(command))
+			{
+				// update the sweep and numSaved
+				flashManager_checkConfig(&numSaved, &sweep);
+				
+				// read the config file
+				// send the number of saved sweeps
+				if (command[0] == 1)
+				{
+					sensorFunctions_sendConfig(&sweep, &numSaved);
+					
+					// also reset the pointer here
+					pointer = numSaved;
+				}
+				// execute a sweep and save to flash
+				else if (command[0] == 2)
+				{
+					// this command was sent by usb, so usb in the function call is true
+					sensorFunctions_saveSweep(&sweep, &numSaved, true);
+				}
+				// execute a sweep and immedietly send it over usb, do not save to flash
+				else if (command[0] == 3)
+				{
+					sensorFunctions_sweepAndSend(&sweep);
+				}
+				// send the pointer sweep over usb
+				else if (command[0] == 4)
+				{
+					// if pointer is at file 0, set it at the most recent sweep saved
+					if (pointer == 0) pointer = numSaved;
+					
+					// send the sweep at pointer
+					sensorFunctions_sendSweep(pointer);
+					
+					// move pointer down
+					pointer--;
+				}
+			}
+		}
+		
+		// delay the task
+		vTaskDelay(MS_TO_TICK(USB_PERIOD));
+	}
+}
+
+// This function is the callback function for the idle task. It will be called when no other task is running
+// The function just puts the nrf into low power mode
+void vApplicationIdleHook(void)
+{
+	// low power mode
+	__WFE();
+	
+	return;
+}
+
+// Creates the necessary tasks and starts the FreeRTOS scheduler
 // Return value:
-//  false if an error occured
-//  true  if all inits successfull
+//  false if error creating tasks
+//  true if task creation success
 bool sensorTasks_init(void)
 {
-  // init Log
-#ifdef DEBUG_TASKS
-  NRF_LOG_INFO("TASKS: Wireless Sensor Started");
-  NRF_LOG_FLUSH();
-#endif
+	BaseType_t xret; // stores result of task creation
 
-  // init twi
-  if (!twiManager_init()) return false;
+  // create the tasks
+	xret = xTaskCreate(sensorTasks_input, "inputTask", configMINIMAL_STACK_SIZE + 100, NULL, 2, &inputTask_handle);
+  if (xret != pdPASS) return false;
+  
+	xret = xTaskCreate(sensorTasks_sweep, "sweepTask", configMINIMAL_STACK_SIZE + 340, NULL, 3, &sweepTask_handle);
+  if (xret != pdPASS) return false;
 
-  // init USB
-  if (!usbManager_init()) return false;
+	xret = xTaskCreate(sensorTasks_blink, "blinkTask", configMINIMAL_STACK_SIZE + 100, NULL, 1, &blinkTask_handle);
+  if (xret != pdPASS) return false;
 	
-	// init flashManager
-	if (!flashManager_init()) return false;
-	
-	// init memory manager
-	if (nrf_mem_init()) return false;
-	
-	// init rtc
-	if (!rtcManager_init()) return false;
-	
-	// init gpiote
-	if (!gpioteManager_init()) return false;
-	
-#ifdef DEBUG_TASKS
-	NRF_LOG_INFO("TASKS: Init Peripherals Success");
-  NRF_LOG_FLUSH();
-#endif
+	xret = xTaskCreate(sensorTasks_usb, "usbTask", configMINIMAL_STACK_SIZE + 440, NULL, 2, &usbTask_handle);
+  if (xret != pdPASS) return false;
 
-  // reset the AD5933
-  if (AD5933_SetControl(NO_OPERATION, RANGE1, GAIN1, INTERN_CLOCK, 1))
-	{
-		gpioteManager_writePin(LED_AD5933, 0);
-	}
-	else
-	{
-#ifdef DEBUG_TASKS
-	NRF_LOG_INFO("TASKS: AD5933 Init Fail");
-  NRF_LOG_FLUSH();
-#endif
-	}
-	
-	// success
-	return true;
+  // start the sceduler
+	vTaskStartScheduler();
+
+	// this function should never return
+  return false;
 }

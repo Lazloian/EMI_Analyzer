@@ -14,9 +14,11 @@ APP_USBD_CDC_ACM_GLOBAL_DEF(m_app_cdc_acm,
 // buffer used to read from usb
 static uint8_t m_rx_buffer[READ_SIZE];
 
+// Indicates if a USB device is plugged in
+static volatile bool usb_ready = false;
+
 // Indicates if USB rx has occured
 static volatile bool rx_ready = false;
-//static volatile bool tx_ready = false;
 
 
 // Sends a sweep over usb given the sweep data
@@ -216,17 +218,26 @@ void usbManager_flush(void)
 	return;
 }
 
-// Returns the state of rx_ready. Also processes the queue
+// Returns the state of rx_ready.
 // Returns:
 //  true if rx_ready is true
 //  false if rx_ready is false
 bool usbManager_readReady(void)
-{
-  // process the queue
-  while(app_usbd_event_queue_process());
-  
+{ 
   // send back rx_ready
   return rx_ready;
+}
+
+// Checks if a usb device has been plugged in and the usb driver has been enabled. Also processes the queue
+// Returns:
+//  true if the usb driver is enabled
+//	false if the usb driver is not enabled
+bool usbManager_checkUSB(void)
+{
+	// process the queue
+  while(app_usbd_event_queue_process());
+	
+	return usb_ready;
 }
 
 // Inits usb using the function at the bottom of the file
@@ -292,14 +303,17 @@ static void usbd_user_ev_handler(app_usbd_event_type_t event)
   {
     case APP_USBD_EVT_DRV_SUSPEND:
       //bsp_board_led_off(LED_USB_RESUME);
+			usb_ready = false;
       break;
     case APP_USBD_EVT_DRV_RESUME:
       //bsp_board_led_on(LED_USB_RESUME);
+			usb_ready = true;
       break;
     case APP_USBD_EVT_STARTED:
       break;
     case APP_USBD_EVT_STOPPED:
       app_usbd_disable();
+			usb_ready = false;
       //bsp_board_led_off(LED_USB_RESUME);
       break;
     case APP_USBD_EVT_POWER_DETECTED:
