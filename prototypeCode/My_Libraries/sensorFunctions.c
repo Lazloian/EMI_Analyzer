@@ -182,8 +182,8 @@ void sensorFunctions_set_default(Sweep * sweep)
   // set the default sweep parameters
   sweep->start 							= 1000;
   sweep->delta 							= 100;
-  sweep->steps 							= 50;//490;
-  sweep->cycles 						= 25;//511;
+  sweep->steps 							= 20;//490;
+  sweep->cycles 						= 20;//511;
   sweep->cyclesMultiplier 	= NO_MULT;//TIMES4;
   sweep->range 							= RANGE1;
   sweep->clockSource 				= INTERN_CLOCK;
@@ -235,15 +235,11 @@ bool sensorFunctions_init(void)
   if (AD5933_SetControl(NO_OPERATION, RANGE1, GAIN1, INTERN_CLOCK, 1))
 	{
 		// blink all the LEDs
-		gpioteManager_writePin(LED_AD5933, 0);
-		gpioteManager_writePin(LED_RTC, 0);
-		gpioteManager_writePin(LED_SWEEP, 0);
-		gpioteManager_writePin(LED_USB, 0);
+		gpioteManager_writePin(RAK_LED_1, 1);
+		gpioteManager_writePin(RAK_LED_2, 1);
 		nrf_delay_ms(200);
-		gpioteManager_writePin(LED_AD5933, 1);
-		gpioteManager_writePin(LED_RTC, 1);
-		gpioteManager_writePin(LED_SWEEP, 1);
-		gpioteManager_writePin(LED_USB, 1);
+		gpioteManager_writePin(RAK_LED_1, 0);
+		gpioteManager_writePin(RAK_LED_2, 0);
 	}
 	else
 	{

@@ -54,7 +54,8 @@ void in_pin_handler(nrf_drv_gpiote_pin_t pin, nrf_gpiote_polarity_t action)
 {
 	// indicate that a gpiote event has occured
 	gpiote_event = true;
-	// check which button
+	// check which button (currently not implemented on RAK)
+	/*
 	if (pin == BUTTON_START && action == GPIOTE_CONFIG_POLARITY_HiToLo)
 	{
 		button = BUTTON_START;
@@ -63,6 +64,7 @@ void in_pin_handler(nrf_drv_gpiote_pin_t pin, nrf_gpiote_polarity_t action)
 	{
 		button = BUTTON_STOP;
 	}
+	*/
 }
 
 static void gpiote_init(void)
@@ -75,22 +77,15 @@ static void gpiote_init(void)
 	// set up LED output, false means that its starts low
 	nrf_drv_gpiote_out_config_t out_config = GPIOTE_CONFIG_OUT_SIMPLE(true);
 
-	// set up RTC LED
-	err_code = nrf_drv_gpiote_out_init(LED_RTC, &out_config);
+	// set up LED 1
+	err_code = nrf_drv_gpiote_out_init(RAK_LED_1, &out_config);
 	APP_ERROR_CHECK(err_code);
 	
-	// set up SWEEP LED
-	err_code = nrf_drv_gpiote_out_init(LED_SWEEP, &out_config);
-	APP_ERROR_CHECK(err_code);
-	
-	// set up SWEEP AD5933
-	err_code = nrf_drv_gpiote_out_init(LED_AD5933, &out_config);
-	APP_ERROR_CHECK(err_code);
-	
-	// set up USB LED
-	err_code = nrf_drv_gpiote_out_init(LED_USB, &out_config);
+	// set up LED 2
+	err_code = nrf_drv_gpiote_out_init(RAK_LED_2, &out_config);
 	APP_ERROR_CHECK(err_code);
 
+	/* No buttons on the RAK module
 	// set up button input, true means that the interrupt is enabled
 	nrf_drv_gpiote_in_config_t in_config = GPIOTE_CONFIG_IN_SENSE_HITOLO(false);
 	in_config.pull = NRF_GPIO_PIN_PULLUP; // buttons are low when enabled so pull up is needed
@@ -106,4 +101,5 @@ static void gpiote_init(void)
 	APP_ERROR_CHECK(err_code);
 
 	nrf_drv_gpiote_in_event_enable(BUTTON_STOP, true);
+	*/
 }

@@ -27,8 +27,6 @@
 #include "app_usbd_serial_num.h"
 #include "app_timer.h"
 
-#include "boards.h"
-
 #include "sweep.h"
 
 #ifdef DEBUG_USB
