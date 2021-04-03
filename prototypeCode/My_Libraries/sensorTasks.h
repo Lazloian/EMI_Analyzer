@@ -34,10 +34,14 @@
 #include "usbManager.h"
 #include "gpioteManager.h"
 #include "sensorFunctions.h"
-#include "rak.h"
 
-#define LED_SWEEP (RAK_LED_1)
-#define LED_BLINK (RAK_LED_2)
+#define BUTTON_START (BSP_BUTTON_0) // Button 1 starts rtc
+#define BUTTON_STOP  (BSP_BUTTON_1) // Button 2 stops rtc
+
+#define LED_RTC    (BSP_LED_0) // LED to signal if RTC is on
+#define LED_USB    (BSP_LED_1) // LED to signal if USB if connected
+#define LED_SWEEP  (BSP_LED_2) // LED to signal if sweep is being done
+#define LED_AD5933 (BSP_LED_3) // LED to singal if the AD5933 is connected
 
 #define SEC_TO_TICK(X) (int)(X * ((float) 1000 / portTICK_PERIOD_MS)) // macro to convert seconds to ticks
 #define MS_TO_TICK(X)  (int)(X * ((float) 1 / portTICK_PERIOD_MS))
@@ -46,8 +50,6 @@
 #define INPUT_PERIOD 250	 // period between input checks in milliseconds
 #define BLINK_PERIOD 10   // period between RTC_LED blinks in seconds
 #define USB_PERIOD   500 // period between usb checks in millisenconds
-
-#define START_DELAY	 3 // delay in seconds for sweeps to start after power on. At least a second is needed for usb
 
 // Tasks
 void sensorTasks_input(void * pvParameter);

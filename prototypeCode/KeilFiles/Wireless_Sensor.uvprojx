@@ -396,6 +396,16 @@
           </Files>
         </Group>
         <Group>
+          <GroupName>Board Definition</GroupName>
+          <Files>
+            <File>
+              <FileName>boards.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\..\..\components\boards\boards.c</FilePath>
+            </File>
+          </Files>
+        </Group>
+        <Group>
           <GroupName>nRF_Drivers</GroupName>
           <Files>
             <File>

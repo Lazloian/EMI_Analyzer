@@ -23,7 +23,6 @@ void sensorTasks_input(void * pvParameter)
 	
 	for (;;)
 	{
-		/* RAK has no buttons, so no input
 		// check if a button has been pressed
 		if (gpioteManager_getEvent(&button))
 		{
@@ -61,7 +60,6 @@ void sensorTasks_input(void * pvParameter)
 		
 		// delay the task
 		vTaskDelay(MS_TO_TICK(INPUT_PERIOD));
-		*/
 	}
 }
 
@@ -73,8 +71,8 @@ void sensorTasks_sweep(void * pvParameter)
 	Sweep sweep;				// sweep to run
 	uint32_t numSaved; // number of sweeps saved
 
-  // Delay the task to check usb
-	vTaskDelay(SEC_TO_TICK(START_DELAY));
+  // this task starts suspended
+  vTaskSuspend(NULL);
 	
 	for (;;)
 	{
@@ -86,7 +84,7 @@ void sensorTasks_sweep(void * pvParameter)
 		lastWakeTime = xTaskGetTickCount();
 		
 		// turn on sweep LED
-		gpioteManager_writePin(LED_SWEEP, 1);
+		gpioteManager_writePin(LED_SWEEP, 0);
 		
 		// get the sweep and numSaved from flash
 		if (flashManager_checkConfig(&numSaved, &sweep))
@@ -95,7 +93,7 @@ void sensorTasks_sweep(void * pvParameter)
 			sensorFunctions_saveSweep(&sweep, &numSaved, false);
 		}
 		// turn off sweep LED
-		gpioteManager_writePin(LED_SWEEP, 0);
+		gpioteManager_writePin(LED_SWEEP, 1);
 
 #ifdef DEBUG_TASKS
 				NRF_LOG_INFO("TASKS: Sweep Executed");
@@ -113,8 +111,8 @@ void sensorTasks_sweep(void * pvParameter)
 // Task to blink the LED to indicate that the device is running
 void sensorTasks_blink(void * pvParameter)
 {
-  // Delay the task to check usb
-	vTaskDelay(SEC_TO_TICK(START_DELAY));
+  // this task starts suspended
+  vTaskSuspend(NULL);
 
 	for (;;)
 	{
@@ -123,9 +121,9 @@ void sensorTasks_blink(void * pvParameter)
 				NRF_LOG_FLUSH();
 #endif
 		// blink the rtc led
-		gpioteManager_writePin(LED_BLINK, 1);
+		gpioteManager_writePin(LED_RTC, 0);
 		vTaskDelay(MS_TO_TICK(100));
-		gpioteManager_writePin(LED_BLINK, 0);
+		gpioteManager_writePin(LED_RTC, 1);
 		
 		// wait
 		vTaskDelay(SEC_TO_TICK(BLINK_PERIOD));
@@ -144,9 +142,6 @@ void sensorTasks_usb(void *pvParameter)
 		// check if a usb device is plugged in
 		while (usbManager_checkUSB())
 		{
-			// suspend the sweep task
-			vTaskSuspend(sweepTask_handle);
-			
 			// check if usb data is available, if it is get the first command
 			if (usbManager_readReady() && usbManager_getByte(command))
 			{
@@ -190,9 +185,6 @@ void sensorTasks_usb(void *pvParameter)
 		
 		// delay the task
 		vTaskDelay(MS_TO_TICK(USB_PERIOD));
-		
-		// resume the sweep task
-		vTaskResume(sweepTask_handle);
 	}
 }
 
@@ -215,10 +207,8 @@ bool sensorTasks_init(void)
 	BaseType_t xret; // stores result of task creation
 
   // create the tasks
-	
-	// input task currently disabled for RAK due to it not having buttons
-	// xret = xTaskCreate(sensorTasks_input, "inputTask", configMINIMAL_STACK_SIZE + 100, NULL, 2, &inputTask_handle);
-  // if (xret != pdPASS) return false;
+	xret = xTaskCreate(sensorTasks_input, "inputTask", configMINIMAL_STACK_SIZE + 100, NULL, 2, &inputTask_handle);
+  if (xret != pdPASS) return false;
   
 	xret = xTaskCreate(sensorTasks_sweep, "sweepTask", configMINIMAL_STACK_SIZE + 340, NULL, 3, &sweepTask_handle);
   if (xret != pdPASS) return false;
