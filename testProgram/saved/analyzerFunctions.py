@@ -1,8 +1,10 @@
 import serial
+import math
+import numpy as np
 import pandas as pd
 import time
-import usbFunctions as uf
-import calcFunctions as cf
+
+comPort = 'COM5'
 
 def save_sweeps(gain):
     numSaved = get_num_saved()
@@ -18,7 +20,7 @@ def save_sweeps(gain):
         print(f'Saving Sweep #{i}')
         data = get_sweep(fromFlash=True)
         print('Data Transferred. Processing ...')
-        data = cf.calc_impedance(data, gain)
+        data = calc_impedance(data, gain)
         df = create_dataframe(data)
         print(df)
         print(f'Sweep #{i}')
@@ -50,15 +52,51 @@ def get_gain():
     calibration = int(input('Input the Calibration Resistance (Ohms) : '))
     
     data = get_sweep(fromFlash=False)
-    gain = cf.calc_gain_factor(data, calibration)
+    gain = calc_gain_factor(data, calibration)
 
     print('Gain Factors Calculated')
 
     return gain
 
+# calculates the phase in degrees given real and imaginary impedance
+def calc_phase(real, imag):
+    if (real == 0):
+        real = 1
+
+    p = math.degrees(math.atan(imag / real))
+    if (real < 0):
+        p = p + 180
+    else:
+        if (imag < 0):
+            p = p + 360
+    return p
+
+# calculates the adjusted impedance and phase values using the gain factor
+def calc_impedance(data, gain):
+    imp = []
+    
+    for ind, d in enumerate(data):
+        mag = math.sqrt((d[1] ** 2) + (d[2] ** 2))
+        i = 1 / (gain[ind][1] * mag)
+        p = calc_phase(d[1], d[2])
+        p = p - gain[ind][2]
+        imp.append((d[0], i, p))
+
+    return imp
+
+# returns a list of tuples with gain factor and system phase for each frequency given a calibration resistance
+def calc_gain_factor(data, calibration):
+    gain = []
+    for d in data:
+        mag = math.sqrt((d[1] ** 2) + (d[2] ** 2))
+        g = (1 / calibration) / mag
+        ps = calc_phase(d[1], d[2])
+        gain.append((d[0], g, ps))
+    return gain
+
 def get_num_saved():
     # open usb connection
-    ser = uf.open_usb()
+    ser = open_usb()
     if not ser:
         return -1
 
@@ -78,7 +116,7 @@ def get_num_saved():
 
 def delete_sweeps():
     # open usb connection
-    ser = uf.open_usb()
+    ser = open_usb()
     if not ser:
         return -1
 
@@ -102,7 +140,7 @@ def execute_sweep():
     print(f'Executing Sweep #{numSaved + 1}')
 
     # open usb connection and check if success
-    ser = uf.open_usb()
+    ser = open_usb()
     if not (ser):
         return
 
@@ -125,7 +163,7 @@ def execute_sweep():
 # If False is passed, it will execute and get data from a sweep immedietly
 def get_sweep(fromFlash=True):
     # open usb connection and check if success
-    ser = uf.open_usb()
+    ser = open_usb()
     if not (ser):
         return
 
@@ -168,6 +206,68 @@ def get_sweep(fromFlash=True):
         data.append((freq, imp[0], imp[1]))
 
     return data
+
+# opens a usb connection on COM5
+def open_usb():
+    # create a serial connection
+    ser = serial.Serial()
+
+    # try to connect to port COM5
+    try:
+        ser.port = comPort
+        ser.timout = 10
+        ser.write_timeout = 10
+        ser.open()
+    except:
+        # for some reason I couldn't put the code below here so I just
+        print('')
+
+    if not (ser.is_open):
+        print('USB connection failed')
+        return False
+    else:
+        return ser
+
+# checks if the prototype is connected over usb
+def check_usb():
+    # create a serial connection
+    ser = serial.Serial()
+
+    # try to connect to port comPort
+    try:
+        ser.port = comPort
+        ser.timout = 10
+        ser.write_timout = 10
+        ser.open()
+    except:
+        # for some reason I couldn't put the code below here so I just
+        ser.close()
+
+    if not (ser.is_open):
+        print('COM port not open. Make sure to set the COM port with "p"')
+    else:
+        # send a 1 to test connection
+        send = [1]
+        send = bytes(send)
+        ser.write(send)
+
+        # device should return 1
+        recieve = ser.read(1)
+
+        if (int.from_bytes(recieve, "little") == 1):
+            print('Device Connected')
+        else:
+            print('Device Not Connected')
+
+        ser.close()
+
+    return
+
+def set_com_port():
+    global comPort
+    port = input('COM Port: ')
+    comPort = 'COM' + port
+    return
 
 # prints the valid commands
 def print_commands():
