@@ -3,63 +3,74 @@ import math
 import numpy as np
 import pandas as pd
 import struct
-import time
 
-comPort = 'COM5'
+comPort = 'COM7'
 
-def set_com_port():
-    global comPort
-    port = input('COM Port: ')
-    comPort = 'COM' + port
-    return
+# sweeps multiple times to output an average of all values
+def sweep_ave(gain, num_ave):
+    for i in range(0, num_ave):
+        # get the data
+        data = get_impedance(gain)
+        
+        # if first sweep, create dataFrame
+        if (i == 0):
+            df = create_dataframe(data)
+        # if not, take the average of the two dataframes
+        else:
+            df = ave_dataframes(df, create_dataframe(data))
 
-def save_sweeps(gain):
-    numSaved = get_num_saved()
+    return df
 
-    if (numSaved < 1):
-        print('No sweeps on flash to save. Aborting')
-        return
+# averages the numbers in 2 dataFrames
+def ave_dataframes(df1, df2):
+    return df1.combine(df2, ave_series)
 
-    print('Files will be saved in this format: (filename)_(sweep number). example: ZK18_1')
-    name = input('Input a filename: ')
+# averages the numbers in 2 series
+def ave_series(s1, s2):
+    return s1.combine(s2, ave_num)
 
-    for i in range(numSaved, 0, -1):
-        print(f'Saving Sweep #{i}')
-        data = get_sweep(fromFlash=True)
-        print('Data Transferred. Processing ...')
-        data = calc_impedance(data, gain)
-        df = create_dataframe(data)
-        print(df)
-        print(f'Sweep #{i}')
-        filename = name + '_' + str(i)
-        output_csv(df, filename)
-        time.sleep(1)
+# averages 2 numbers
+def ave_num(n1, n2):
+    return (n1 + n2) / 2
 
-    return
+def set_ave():
+    return int(input(f"Number of Sweeps to Average: "))
 
-def sweep_now():
-    data = get_sweep(fromFlash=False)
-    df = create_dataframe(data)
-    print(df)
+def output_csv(df):
+    name = input('File Name: ')
 
-    return
-
-def output_csv(df, name):
     df.to_csv(f'savedData\{name}.csv')
     print(f'Saved To: ./savedData/{name}.csv')
-
-    return
 
 def create_dataframe(data):
     df = pd.DataFrame(data, columns=['Frequency', 'Impedance', 'Phase'])
 
     return df
 
-def get_gain():
+def get_impedance(gain):
+    data = execute_sweep()
+    imp = calc_impedance(data, gain)
+
+    return imp
+
+def ave_gain(g1, g2):
+    gains = []
+    for i in range(0, len(g1)):
+        gs = (g1[i][1] + g2[i][1]) / 2
+        gp = (g1[i][2] + g2[i][2]) / 2
+        gains.append((g1[i][0], gs, gp))
+
+    return gains
+
+def get_gain(num_ave):
     calibration = int(input('Input the Calibration Resistance (Ohms) : '))
     
-    data = get_sweep(fromFlash=False)
-    gain = calc_gain_factor(data, calibration)
+    for i in range(0, num_ave):
+        data = execute_sweep()
+        if (i == 0):
+            gain = calc_gain_factor(data, calibration)
+        else:
+            gain = ave_gain(gain, calc_gain_factor(data, calibration))
 
     print('Gain Factors Calculated')
 
@@ -67,9 +78,6 @@ def get_gain():
 
 # calculates the phase in degrees given real and imaginary impedance
 def calc_phase(real, imag):
-    if (real == 0):
-        real = 1
-
     p = math.degrees(math.atan(imag / real))
     if (real < 0):
         p = p + 180
@@ -78,7 +86,7 @@ def calc_phase(real, imag):
             p = p + 360
     return p
 
-# calculates the adjusted impedance and phase values using the gain factor
+# calculates the adjusted impedance values using the gain factor
 def calc_impedance(data, gain):
     imp = []
     
@@ -105,8 +113,8 @@ def get_num_saved():
     # open usb connection
     ser = open_usb()
     if not ser:
-        return -1
-
+        return
+    
     # send the get num saved command
     buff = bytes([1])
     ser.write(buff)
@@ -116,17 +124,13 @@ def get_num_saved():
 
     # convert and print the number of saved sweeps
     num_saved = int.from_bytes(buff, "little")
+    print(f'Number of saved sweeps in flash: {num_saved}')
 
     ser.close()
 
     return num_saved
 
-# Executes a sweep that is then saved to flash on the nrf
 def execute_sweep():
-    # get the number of sweeps currently saved on flash
-    numSaved = get_num_saved()
-    print(f'Executing Sweep #{numSaved + 1}')
-
     # open usb connection and check if success
     ser = open_usb()
     if not (ser):
@@ -143,30 +147,25 @@ def execute_sweep():
         print("Sweep Execute Failed")
         return
     else:
-        print(f'Sweep #{numSaved + 1} Executed and Saved To Flash')
+        print("Sweep Executed and Saved To Flash")
         return
 
+
 # returns a list of tuples with each element a data point in the sweep
-# By default, this gets the next sweep from flash
-# If False is passed, it will execute and get data from a sweep immedietly
-def get_sweep(fromFlash=True):
+def get_sweep():
     # open usb connection and check if success
     ser = open_usb()
     if not (ser):
         return
 
     # send the get sweep command
-    if (fromFlash):
-        buff = [4]
-    else:
-        buff = [3]
-
+    buff = [3]
     buff = bytes(buff)
     ser.write(buff)
 
     # should read 3 back
     buff = ser.read(1)
-    if (int.from_bytes(buff, "little") not in [3, 4]):
+    if (int.from_bytes(buff, "little") != 3):
         print("Sweep Start Failed")
         ser.close()
         return
@@ -188,8 +187,6 @@ def get_sweep(fromFlash=True):
         # get real and imaginary data and convert it
         imp[0] = int.from_bytes(buff[4:6], "big", signed=True)
         imp[1] = int.from_bytes(buff[6:8], "big", signed=True)
-
-        #print(f'{freq} {imp}')
 
         data.append((freq, imp[0], imp[1]))
 
