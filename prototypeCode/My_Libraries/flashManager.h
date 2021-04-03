@@ -42,6 +42,8 @@
 #define MAX_FREQ_SIZE     2048
 #define MAX_IMP_SIZE      1024
 
+#define FM_MAX_DELETE				5 // maximum number of files to delete before garbage collection
+
 // User Functions
 bool flashManager_init(void);
 bool flashManager_checkConfig(uint32_t * num_sweeps, Sweep * sweep);
@@ -50,7 +52,7 @@ bool flashManager_getSweep(uint32_t * freq, uint16_t * real, uint16_t * imag, Me
 bool flashManager_updateSavedSweep(Sweep * sweep);
 bool flashManager_updateNumSweeps(uint32_t * num_sweeps);
 bool flashManager_deleteSweep(uint32_t sweep_num);
-bool flashManager_deleteAllSweeps(uint32_t num_sweeps);
+bool flashManager_collectGarbage(void);
 
 // FDS helper functions
 static bool flashManager_createRecord(fds_record_desc_t * record_desc, uint32_t file_id, uint32_t record_key, void const * p_data, uint32_t num_bytes);

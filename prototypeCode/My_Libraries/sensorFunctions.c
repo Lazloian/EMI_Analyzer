@@ -177,14 +177,77 @@
 	return res;
 }
 
+// Deletes all the saved sweeps in flash and reset the number of saved sweeps
+// Arguments: 
+//	numSaved: the number of sweeps saved to flash
+//	usb			: true to send a confirmation over usb
+// Return value:
+//  false if error deleting sweeps
+//  true  if delete successful
+bool sensorFunctions_deleteSweeps(uint32_t numSaved, bool usb)
+{
+	uint32_t current; // the current sweep to delete
+	current = numSaved; // set current to the number of sweeps saved
+
+	bool stat = true;
+	
+#ifdef DEBUG_LOG
+	NRF_LOG_INFO("Deleting all sweeps");
+	NRF_LOG_FLUSH();
+#endif
+	
+	// delete all the sweeps
+	while (current > 0 && stat)
+	{
+		stat = flashManager_deleteFile(current);
+		current -= 1;
+	}
+	
+	if (stat && current == 0)
+	{
+#ifdef DEBUG_LOG
+		NRF_LOG_INFO("FUNCTIONS: All sweeps deleted");
+		NRF_LOG_FLUSH();
+#endif
+	}
+	else
+	{
+#ifdef DEBUG_LOG
+		NRF_LOG_INFO("FUNCTIONS: Sweeps delete fail");
+		NRF_LOG_FLUSH();
+#endif
+	}
+	
+	// update the number of saved sweeps
+	flashManager_updateNumSweeps(&current);
+	
+	// if connected to usb send confirmation of success or failure
+	if (usb)
+	{
+		uint8_t buff[1];
+		if (stat) 
+		{
+			buff[0] = 5;
+		}
+		else
+		{
+			buff[0] = 6;
+		}
+		usbManager_writeBytes(buff, 1);
+	}
+	
+	// return stat
+	return stat;
+}
+
 void sensorFunctions_set_default(Sweep * sweep)
 {
   // set the default sweep parameters
   sweep->start 							= 1000;
   sweep->delta 							= 100;
-  sweep->steps 							= 50;//490;
-  sweep->cycles 						= 25;//511;
-  sweep->cyclesMultiplier 	= NO_MULT;//TIMES4;
+  sweep->steps 							= 490;
+  sweep->cycles 						= 511;
+  sweep->cyclesMultiplier 	= TIMES4;
   sweep->range 							= RANGE1;
   sweep->clockSource 				= INTERN_CLOCK;
   sweep->clockFrequency 		= CLK_FREQ;
@@ -235,15 +298,11 @@ bool sensorFunctions_init(void)
   if (AD5933_SetControl(NO_OPERATION, RANGE1, GAIN1, INTERN_CLOCK, 1))
 	{
 		// blink all the LEDs
-		gpioteManager_writePin(LED_AD5933, 0);
-		gpioteManager_writePin(LED_RTC, 0);
-		gpioteManager_writePin(LED_SWEEP, 0);
-		gpioteManager_writePin(LED_USB, 0);
+		gpioteManager_writePin(RAK_LED_1, 1);
+		gpioteManager_writePin(RAK_LED_2, 1);
 		nrf_delay_ms(200);
-		gpioteManager_writePin(LED_AD5933, 1);
-		gpioteManager_writePin(LED_RTC, 1);
-		gpioteManager_writePin(LED_SWEEP, 1);
-		gpioteManager_writePin(LED_USB, 1);
+		gpioteManager_writePin(RAK_LED_1, 0);
+		gpioteManager_writePin(RAK_LED_2, 0);
 	}
 	else
 	{

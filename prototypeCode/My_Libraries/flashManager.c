@@ -427,7 +427,7 @@ static bool flashManager_findRecord(fds_record_desc_t * record_desc, uint32_t fi
   memset(&ftok, 0x00, sizeof(fds_find_token_t));
 
 #ifdef DEBUG_FLASH
-  NRF_LOG_INFO("FLASH: Looking for record %x in file %x", record_key, file_id);
+  NRF_LOG_INFO("FLASH: Looking for record %d in file %d", record_key, file_id);
   NRF_LOG_FLUSH();
 #endif
   // find the record, if fail return false
@@ -482,13 +482,35 @@ static bool flashManager_deleteRecord(fds_record_desc_t * record_desc)
 bool flashManager_deleteFile(uint32_t file_id)
 {
 #ifdef DEBUG_FLASH
-  NRF_LOG_INFO("FLASH: Deleting file %x", file_id);
+  NRF_LOG_INFO("FLASH: Deleting file %d", file_id);
   NRF_LOG_FLUSH();
 #endif
   if (fds_file_delete(file_id) != NRF_SUCCESS)
   {
 #ifdef DEBUG_FLASH
     NRF_LOG_INFO("FLASH: File delete fail");
+    NRF_LOG_FLUSH();
+#endif
+    return false;
+  }
+  // success
+  return true;
+}
+
+// Runs garbage collection
+// Returns:
+//  true if collection success
+//  false if collection fail
+bool flashManager_collectGarbage(void)
+{
+#ifdef DEBUG_FLASH
+  NRF_LOG_INFO("FLASH: Running garbage collection");
+  NRF_LOG_FLUSH();
+#endif
+  if (fds_gc() != NRF_SUCCESS)
+  {
+#ifdef DEBUG_FLASH
+    NRF_LOG_INFO("FLASH: Garbage collection fail");
     NRF_LOG_FLUSH();
 #endif
     return false;

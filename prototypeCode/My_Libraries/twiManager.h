@@ -19,9 +19,10 @@
 #include "app_error.h"
 #include "app_util.h"
 
-#include "boards.h"
 #include "app_util_platform.h"
 #include "nrf_drv_twi.h"
+
+#include "rak.h"
 
 #ifdef DEBUG_TWI
 #include "nrf_log.h"
