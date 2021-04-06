@@ -13,13 +13,14 @@
 // Arguments: 
 //	* sweep    : The sweep to execute
 //	* numSaved : The number of sweeps currently saved
+//  * numSaved : The number of sweeps currently deleted
 // Return value:
 //  false if error
 //  true  if success
- bool sensorFunctions_sendConfig(Sweep * sweep, uint32_t * numSaved)
+ bool sensorFunctions_sendConfig(Sweep * sweep, uint32_t * numSaved, uint16_t * numDeleted)
  {
 	// check and update from the config file
-	if (!flashManager_checkConfig(numSaved, sweep)) return false;
+	if (!flashManager_checkConfig(numSaved, sweep, numDeleted)) return false;
 	 
 	// send the number of saved sweeps
 	if (!usbManager_writeBytes(numSaved, sizeof(numSaved))) return false;
@@ -180,13 +181,14 @@
 // Deletes all the saved sweeps in flash and reset the number of saved sweeps
 // Arguments: 
 //	numSaved: the number of sweeps saved to flash
+//	numSaved: the number of sweeps that have been deleted
 //	usb			: true to send a confirmation over usb
 // Return value:
 //  false if error deleting sweeps
 //  true  if delete successful
-bool sensorFunctions_deleteSweeps(uint32_t numSaved, bool usb)
+bool sensorFunctions_deleteSweeps(uint32_t numSaved, uint16_t numDeleted, bool usb)
 {
-	uint32_t current; // the current sweep to delete
+	uint32_t current; 		// the current sweep to delete
 	current = numSaved; // set current to the number of sweeps saved
 
 	bool stat = true;
@@ -200,7 +202,8 @@ bool sensorFunctions_deleteSweeps(uint32_t numSaved, bool usb)
 	while (current > 0 && stat)
 	{
 		stat = flashManager_deleteFile(current);
-		current -= 1;
+		current--;
+		numDeleted++;
 	}
 	
 	if (stat && current == 0)
@@ -220,6 +223,9 @@ bool sensorFunctions_deleteSweeps(uint32_t numSaved, bool usb)
 	
 	// update the number of saved sweeps
 	flashManager_updateNumSweeps(&current);
+	
+	// update the number of deleted sweeps
+	flashManager_updateNumDeleted(&numDeleted);
 	
 	// if connected to usb send confirmation of success or failure
 	if (usb)
@@ -298,10 +304,8 @@ bool sensorFunctions_init(void)
   if (AD5933_SetControl(NO_OPERATION, RANGE1, GAIN1, INTERN_CLOCK, 1))
 	{
 		// blink all the LEDs
-		gpioteManager_writePin(RAK_LED_1, 1);
 		gpioteManager_writePin(RAK_LED_2, 1);
 		nrf_delay_ms(200);
-		gpioteManager_writePin(RAK_LED_1, 0);
 		gpioteManager_writePin(RAK_LED_2, 0);
 	}
 	else

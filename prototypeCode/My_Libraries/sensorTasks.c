@@ -70,8 +70,9 @@ void sensorTasks_sweep(void * pvParameter)
 {
 	TickType_t lastWakeTime; 								 // keeps track of the time the task woke up
 	
-	Sweep sweep;				// sweep to run
-	uint32_t numSaved; // number of sweeps saved
+	Sweep sweep;				   // sweep to run
+	uint32_t numSaved;    // number of sweeps saved
+	uint16_t numDeleted; // the number of sweeps deleted
 
   // Delay the task to check usb
 	vTaskDelay(SEC_TO_TICK(START_DELAY));
@@ -89,7 +90,7 @@ void sensorTasks_sweep(void * pvParameter)
 		gpioteManager_writePin(LED_SWEEP, 1);
 		
 		// get the sweep and numSaved from flash
-		if (flashManager_checkConfig(&numSaved, &sweep))
+		if (flashManager_checkConfig(&numSaved, &sweep, &numDeleted))
 		{
 			// save a sweep to flash
 			sensorFunctions_saveSweep(&sweep, &numSaved, false);
@@ -134,8 +135,9 @@ void sensorTasks_blink(void * pvParameter)
 
 void sensorTasks_usb(void *pvParameter)
 {
-	Sweep sweep;						// the sweep stored in flash
-	uint32_t numSaved; 		 // number of sweeps saved
+	Sweep sweep;						 // the sweep stored in flash
+	uint32_t numSaved; 		  // number of sweeps saved
+	uint16_t numDeleted;	 // number of sweeps deleted
 	uint32_t pointer = 0; // the number of the sweep to be sent next
 	uint8_t command[1];  // the command from usb
 	
@@ -151,13 +153,13 @@ void sensorTasks_usb(void *pvParameter)
 			if (usbManager_readReady() && usbManager_getByte(command))
 			{
 				// update the sweep and numSaved
-				flashManager_checkConfig(&numSaved, &sweep);
+				flashManager_checkConfig(&numSaved, &sweep, &numDeleted);
 				
 				// read the config file
 				// send the number of saved sweeps
 				if (command[0] == 1)
 				{
-					sensorFunctions_sendConfig(&sweep, &numSaved);
+					sensorFunctions_sendConfig(&sweep, &numSaved, &numDeleted);
 					
 					// also reset the pointer here
 					pointer = numSaved;
@@ -165,8 +167,13 @@ void sensorTasks_usb(void *pvParameter)
 				// execute a sweep and save to flash
 				else if (command[0] == 2)
 				{
+#ifdef TESTING
+					// FOR TESTING WITHOUT AD5933
+					testFunctions_saveDummy(&sweep, &numSaved, true);
+#else
 					// this command was sent by usb, so usb in the function call is true
 					sensorFunctions_saveSweep(&sweep, &numSaved, true);
+#endif
 				}
 				// execute a sweep and immedietly send it over usb, do not save to flash
 				else if (command[0] == 3)
@@ -187,7 +194,7 @@ void sensorTasks_usb(void *pvParameter)
 				}
 				else if (command[0] == 5)
 				{
-					sensorFunctions_deleteSweeps(numSaved, true);
+					sensorFunctions_deleteSweeps(numSaved, numDeleted, true);
 				}
 			}
 		}

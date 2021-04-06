@@ -31,8 +31,8 @@
 #include "nrf_log_default_backends.h"
 #endif
 
-bool sensorFunctions_deleteSweeps(uint32_t numSaved, bool usb);
-bool sensorFunctions_sendConfig(Sweep * sweep, uint32_t * numSaved);
+bool sensorFunctions_deleteSweeps(uint32_t numSaved, uint16_t numDeleted, bool usb);
+bool sensorFunctions_sendConfig(Sweep * sweep, uint32_t * numSaved, uint16_t * numDeleted);
 void sensorFunctions_set_default(Sweep * sweep);
 bool sensorFunctions_sendSweep(uint32_t numSaved);
 bool sensorFunctions_sweepAndSend(Sweep * sweep);

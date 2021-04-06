@@ -36,6 +36,9 @@
 #include "sensorFunctions.h"
 #include "rak.h"
 
+// Testing
+#include "testFunctions.h"
+
 #define LED_SWEEP (RAK_LED_1)
 #define LED_BLINK (RAK_LED_2)
 

@@ -1,5 +1,6 @@
 import analyzerFunctions as af
 import pandas as pd
+import time
 
 # create DataFrame to store the data (blank at start)
 df = pd.DataFrame()
@@ -38,7 +39,9 @@ while(1):
         gotGain = True
 
     elif (cmd == 'x'):
-        af.execute_sweep()
+        for i in range(50):
+            af.execute_sweep()
+            time.sleep(0.25)
 
     elif (cmd == 'h'):
         af.print_commands()

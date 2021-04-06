@@ -34,6 +34,9 @@ static uint32_t numSaved = 0;
 // create a new sweep
 static Sweep sweep = {0};
 
+// stores the number of sweeps deleted
+static uint16_t numDeleted = 0;
+
 // Main function
 int main(void)
 {
@@ -46,11 +49,14 @@ int main(void)
 	// init peripherals for tasks
 	sensorFunctions_init();
 	
+	// turn on LED to indicate init
+	gpioteManager_writePin(RAK_LED_1, 1);
+	
 	// set the sweep to default parameters
   sensorFunctions_set_default(&sweep);
 	
 	// load the config files from flash
-	flashManager_checkConfig(&numSaved, &sweep);
+	flashManager_checkConfig(&numSaved, &sweep, &numDeleted);
 	
 	// set the sweep to default parameters
   sensorFunctions_set_default(&sweep);
@@ -58,8 +64,18 @@ int main(void)
 	// set the sweep to the current default
 	flashManager_updateSavedSweep(&sweep);
 	
-	// run garbage collection FOR TESTING
-	// flashManager_collectGarbage();
+	// check if the number of sweeps that have been deleted is greater than FM_MAX_DELETE
+	if (numDeleted >= FM_MAX_DELETE)
+	{
+		if (flashManager_collectGarbage())
+		{
+			numDeleted = 0;
+			flashManager_updateNumDeleted(&numDeleted);
+		}
+	}
+	
+	// turn off led to indicate init complete
+	gpioteManager_writePin(RAK_LED_1, 0);
 	
 	// init the tasks
 	sensorTasks_init(); // this function should never return

@@ -179,15 +179,42 @@ bool flashManager_updateSavedSweep(Sweep * sweep)
 	return true;
 }
 
+// updates the saved number of deleted sweeps in the config file
+// Arguments: 
+//	* num_delete" pointer to the number of sweeps deleted
+// Return value:
+//  false if error updating config file
+//  true  if config file updated successfully
+bool flashManager_updateNumDeleted(uint16_t * num_delete)
+{
+#ifdef DEBUG_FLASH
+  NRF_LOG_INFO("FLASH: Updating the number of deleted sweeps");
+  NRF_LOG_FLUSH();
+#endif
+
+  // create a record desc to save the record
+  fds_record_desc_t record_desc;
+
+  // find the saved sweep record
+  if (!flashManager_findRecord(&record_desc, CONFIG_ID, CONFIG_NUM_DELETE)) return false;
+
+  // update the record
+  if (!flashManager_updateRecord(&record_desc, CONFIG_ID, CONFIG_NUM_DELETE, num_delete, sizeof(uint16_t))) return false;
+
+	// update success
+	return true;
+}
+
 // checks for config files and loads the number of saved sweep and the saved sweep parameters from flash
 // if no config file is found, new files are created with default values
 // Arguments: 
-//	* num_sweep: pointer to the variable that stores the number of saved sweeps
-//	* sweep:		 pointer to the struct to load the sweep from flash
+//	* num_sweep:  pointer to the variable that stores the number of saved sweeps
+//	* sweep:		  pointer to the struct to load the sweep from flash
+//	* num_delete: pointer to the variable to store the number of deleted sweeps
 // Return value:
 //  false if error loading config file
 //  true  if config file loaded successfully
-bool flashManager_checkConfig(uint32_t * num_sweeps, Sweep * sweep)
+bool flashManager_checkConfig(uint32_t * num_sweeps, Sweep * sweep, uint16_t * num_delete)
 {
   // record desc to store records
   fds_record_desc_t record_desc;
@@ -230,6 +257,26 @@ bool flashManager_checkConfig(uint32_t * num_sweeps, Sweep * sweep)
 #endif
     // sweep record not found, create one
     if (!flashManager_createRecord(&record_desc, CONFIG_ID, CONFIG_SWEEP, sweep, sizeof(Sweep))) return false;
+  }
+	
+	 // try to find the number of sweeps deleted record
+  if (flashManager_findRecord(&record_desc, CONFIG_ID, CONFIG_NUM_DELETE))
+  {
+    // num sweeps record found, get its contents
+    if (!flashManager_readRecord(&record_desc, num_delete, sizeof(uint16_t))) return false;
+#ifdef DEBUG_FLASH
+    NRF_LOG_INFO("FLASH: Number of deleted sweeps found, %d", *num_delete);
+    NRF_LOG_FLUSH();
+#endif
+  }
+  else
+  {
+#ifdef DEBUG_FLASH
+    NRF_LOG_INFO("FLASH: Deleted sweeps not found, creating record");
+    NRF_LOG_FLUSH();
+#endif
+    // num sweeps record not found, create one
+    if (!flashManager_createRecord(&record_desc, CONFIG_ID, CONFIG_NUM_DELETE, num_delete, sizeof(uint16_t))) return false;
   }
 	
   // success
