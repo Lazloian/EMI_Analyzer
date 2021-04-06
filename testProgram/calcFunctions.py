@@ -5,7 +5,6 @@
 # Author: Henry Silva
 
 import math
-import nump as np
 
 # calculates the phase in degrees given real and imaginary impedance
 def calc_phase(real, imag):

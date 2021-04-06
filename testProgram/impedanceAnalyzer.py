@@ -1,8 +1,6 @@
 import analyzerFunctions as af
-import pandas as pd
-
-# create DataFrame to store the data (blank at start)
-df = pd.DataFrame()
+import nrfFunctions as nrf
+import usbFunctions as uf
 
 # variables to store program state
 gotGain = False
@@ -11,7 +9,7 @@ gotGain = False
 num_saved = 0
 
 # let the user know that h can be used to get command
-print('\nImpedance Analyzer Controller')
+print('\nImpedance Analyzer Prototype 0.5')
 print('\nFor a list of commands enter "h"\n')
 
 # main loop for getting user input
@@ -23,7 +21,7 @@ while(1):
         quit()
 
     elif (cmd == 'c'):
-        num_saved = af.get_num_saved()
+        num_saved = nrf.get_num_saved()
         if (num_saved >= 0):
             print(f'Sweeps on flash: {num_saved}')
 
@@ -38,16 +36,16 @@ while(1):
         gotGain = True
 
     elif (cmd == 'x'):
-        af.execute_sweep()
+        nrf.execute_sweep()
 
     elif (cmd == 'h'):
         af.print_commands()
 
     elif (cmd == 'p'):
-        af.set_com_port()
+        uf.set_com_port()
 
     elif (cmd == 'd'):
-        af.delete_sweeps()
+        nrf.delete_sweeps()
 
     else:
         print('Input a valid command!')
