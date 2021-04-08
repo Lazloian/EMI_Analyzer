@@ -2,17 +2,33 @@ import pandas as pd
 import time
 import calcFunctions as cf
 import nrfFunctions as nrf
+import os
 
 # saves all the sweeps on the device
 def save_sweeps(gain):
-    numSaved = get_num_saved()
+
+    # create a directory to put all the saved data
+    path = 'savedData'
+    if not os.path.isdir(path):
+        os.mkdir(path)
+
+    numSaved = nrf.get_num_saved()
 
     if (numSaved < 1):
         print('No sweeps on flash to save. Aborting')
         return
 
+    # get the name of the sweep to save
     print('Files will be saved in this format: (filename)_(sweep number). example: ZK18_1')
     name = input('Input a filename: ')
+
+    # check if the name has already been used
+    path = 'savedData\\' + name
+    while (os.path.isdir(path)):
+        name = input('Filename already present in saved data, please input a new one: ')
+        path = 'savedData\\' + name
+
+    os.mkdir(path)
 
     for i in range(numSaved, 0, -1):
         print(f'Saving Sweep #{i}')
@@ -23,8 +39,8 @@ def save_sweeps(gain):
         print(df)
         print(f'Sweep #{i}')
         filename = name + '_' + str(i)
-        output_csv(df, filename)
-        time.sleep(1)
+        output_csv(df, filename, path)
+        time.sleep(0.25)
 
     return
 
@@ -37,9 +53,9 @@ def sweep_now():
     return
 
 # outputs the given dataframe to a csv file
-def output_csv(df, name):
-    df.to_csv(f'savedData\{name}.csv')
-    print(f'Saved To: ./savedData/{name}.csv')
+def output_csv(df, name, path):
+    df.to_csv(f'{path}\\{name}.csv')
+    print(f'Saved To: .\\{path}\\{name}.csv')
 
     return
 
