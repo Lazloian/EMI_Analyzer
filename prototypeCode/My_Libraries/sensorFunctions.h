@@ -25,18 +25,21 @@
 
 #include "mem_manager.h"
 
+// BLE
+#include "ble_sweep.h"
+
 #ifdef DEBUG_FUNCTIONS
 #include "nrf_log.h"
 #include "nrf_log_ctrl.h"
 #include "nrf_log_default_backends.h"
 #endif
 
-bool sensorFunctions_deleteSweeps(uint32_t numSaved, uint16_t numDeleted, bool usb);
-bool sensorFunctions_sendConfig(Sweep * sweep, uint32_t * numSaved, uint16_t * numDeleted);
+bool sensorFunctions_deleteSweeps(Config * config, bool usb);
+bool sensorFunctions_sendConfig(Config * config);
 void sensorFunctions_set_default(Sweep * sweep);
 bool sensorFunctions_sendSweep(uint32_t numSaved);
 bool sensorFunctions_sweepAndSend(Sweep * sweep);
-bool sensorFunctions_saveSweep(Sweep * sweep, uint32_t * numSaved, bool usb);
+bool sensorFunctions_saveSweep(Config * config, bool usb);
 bool sensorFunctions_init(void);
 
 #endif

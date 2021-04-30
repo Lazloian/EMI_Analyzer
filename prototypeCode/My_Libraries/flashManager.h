@@ -33,9 +33,7 @@
 
 // defines
 #define CONFIG_ID         0x0000
-#define CONFIG_NUM_SWEEPS 0x0001
-#define CONFIG_SWEEP      0x0002
-#define CONFIG_NUM_DELETE 0x0003
+#define CONFIG_RECORD     0x0001
 #define SWEEP_FREQ				0x0001
 #define SWEEP_REAL				0x0002
 #define SWEEP_IMAG				0x0003
@@ -47,12 +45,10 @@
 
 // User Functions
 bool flashManager_init(void);
-bool flashManager_checkConfig(uint32_t * num_sweeps, Sweep * sweep, uint16_t * num_delete);
+bool flashManager_checkConfig(Config * config);
 bool flashManager_saveSweep(uint32_t * freq, uint16_t * real, uint16_t * imag, MetaData * metadata, uint32_t sweep_num);
 bool flashManager_getSweep(uint32_t * freq, uint16_t * real, uint16_t * imag, MetaData * metadata, uint32_t sweep_num);
-bool flashManager_updateSavedSweep(Sweep * sweep);
-bool flashManager_updateNumSweeps(uint32_t * num_sweeps);
-bool flashManager_updateNumDeleted(uint16_t * num_delete);
+bool flashManager_updateConfig(Config * config);
 bool flashManager_deleteSweep(uint32_t sweep_num);
 bool flashManager_collectGarbage(void);
 

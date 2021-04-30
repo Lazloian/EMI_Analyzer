@@ -11,12 +11,11 @@
  
 // Saves a dummy sweep to flash
 // Arguments: 
-//	* sweep    : The sweep to execute
-//	* numSaved : The number of sweeps currently saved
+//	* config: pointer to the sensor config
 // Return value:
 //  false if error saving sweep
 //  true  if sweep saved successfully
- bool testFunctions_saveDummy (Sweep * sweep, uint32_t * numSaved, bool usb)
+ bool testFunctions_saveDummy (Config * config, bool usb)
 {
 	// allocate memory for sweep data
 	uint32_t * freq = nrf_malloc(MAX_FREQ_SIZE);
@@ -28,14 +27,12 @@
 	uint8_t buff[1] = {1}; // to save the result for usb
 	
 	// fill with dummy data
-	testFunctions_dummyData(freq, sizeof(uint32_t) * sweep->metadata.numPoints);
-	testFunctions_dummyData(real, sizeof(uint16_t) * sweep->metadata.numPoints);
-	testFunctions_dummyData(imag, sizeof(uint16_t) * sweep->metadata.numPoints);
+	testFunctions_dummyData(freq, sizeof(uint32_t) * config->sweep.metadata.numPoints);
+	testFunctions_dummyData(real, sizeof(uint16_t) * config->sweep.metadata.numPoints);
+	testFunctions_dummyData(imag, sizeof(uint16_t) * config->sweep.metadata.numPoints);
 
-	if (flashManager_saveSweep(freq, real, imag, &sweep->metadata, *numSaved + 1))
+	if (flashManager_saveSweep(freq, real, imag, &config->sweep.metadata, config->num_sweeps + 1))
 	{
-		*numSaved += 1;
-		flashManager_updateNumSweeps(numSaved);
 #ifdef DEBUG_TEST
 		NRF_LOG_INFO("TEST: Dummy Sweep %d saved", *numSaved);
 		NRF_LOG_FLUSH();

@@ -13,6 +13,7 @@ static TaskHandle_t inputTask_handle;
 static TaskHandle_t sweepTask_handle;
 static TaskHandle_t blinkTask_handle;
 static TaskHandle_t usbTask_handle;
+static TaskHandle_t BLETask_handle;
 
 // Task for detecting input. Resumes and suspends tasks depending on the button pressed
 void sensorTasks_input(void * pvParameter)
@@ -23,7 +24,7 @@ void sensorTasks_input(void * pvParameter)
 	
 	for (;;)
 	{
-		/* RAK has no buttons, so no input
+		/* No checking buttong presses on the RAK
 		// check if a button has been pressed
 		if (gpioteManager_getEvent(&button))
 		{
@@ -58,10 +59,10 @@ void sensorTasks_input(void * pvParameter)
         vTaskSuspend(blinkTask_handle);
 			}
 		}
+		*/
 		
 		// delay the task
 		vTaskDelay(MS_TO_TICK(INPUT_PERIOD));
-		*/
 	}
 }
 
@@ -70,9 +71,7 @@ void sensorTasks_sweep(void * pvParameter)
 {
 	TickType_t lastWakeTime; 								 // keeps track of the time the task woke up
 	
-	Sweep sweep;				   // sweep to run
-	uint32_t numSaved;    // number of sweeps saved
-	uint16_t numDeleted; // the number of sweeps deleted
+	Config config;	// saves config data
 
   // Delay the task to check usb
 	vTaskDelay(SEC_TO_TICK(START_DELAY));
@@ -87,16 +86,19 @@ void sensorTasks_sweep(void * pvParameter)
 		lastWakeTime = xTaskGetTickCount();
 		
 		// turn on sweep LED
-		gpioteManager_writePin(LED_SWEEP, 1);
+		gpioteManager_writePin(LED_SWEEP, 2);
 		
 		// get the sweep and numSaved from flash
-		if (flashManager_checkConfig(&numSaved, &sweep, &numDeleted))
+		if (flashManager_checkConfig(&config))
 		{
+			// update time in the metadata
+			config.sweep.metadata.time = TICK_TO_SEC(xTaskGetTickCount());
+			
 			// save a sweep to flash
-			sensorFunctions_saveSweep(&sweep, &numSaved, false);
+			sensorFunctions_saveSweep(&config, false);
 		}
 		// turn off sweep LED
-		gpioteManager_writePin(LED_SWEEP, 0);
+		gpioteManager_writePin(LED_SWEEP, 2);
 
 #ifdef DEBUG_TASKS
 				NRF_LOG_INFO("TASKS: Sweep Executed");
@@ -109,6 +111,24 @@ void sensorTasks_sweep(void * pvParameter)
 		vTaskDelayUntil(&lastWakeTime, SEC_TO_TICK(SWEEP_PERIOD));
 	}
 	
+}
+
+// Task for sending sweep data over BLE
+void sensorTasks_BLE(void * pvParameter)
+{
+	uint8_t package[9] = {5};
+	PackageInfo pinfo;
+	
+	// Delay the task to check usb
+	vTaskDelay(SEC_TO_TICK(START_DELAY));
+	
+	for (;;)
+	{
+		//pinfo = pack_sweep_data(package, 1);
+		send_package_ble(package, 9);
+		
+		vTaskDelay(SEC_TO_TICK(BLE_PERIOD));
+	}
 }
 
 // Task to blink the LED to indicate that the device is running
@@ -124,9 +144,9 @@ void sensorTasks_blink(void * pvParameter)
 				NRF_LOG_FLUSH();
 #endif
 		// blink the rtc led
-		gpioteManager_writePin(LED_BLINK, 1);
+		gpioteManager_writePin(LED_BLINK, 2);
 		vTaskDelay(MS_TO_TICK(100));
-		gpioteManager_writePin(LED_BLINK, 0);
+		gpioteManager_writePin(LED_BLINK, 2);
 		
 		// wait
 		vTaskDelay(SEC_TO_TICK(BLINK_PERIOD));
@@ -135,9 +155,7 @@ void sensorTasks_blink(void * pvParameter)
 
 void sensorTasks_usb(void *pvParameter)
 {
-	Sweep sweep;						 // the sweep stored in flash
-	uint32_t numSaved; 		  // number of sweeps saved
-	uint16_t numDeleted;	 // number of sweeps deleted
+	Config config;
 	uint32_t pointer = 0; // the number of the sweep to be sent next
 	uint8_t command[1];  // the command from usb
 	
@@ -153,38 +171,38 @@ void sensorTasks_usb(void *pvParameter)
 			if (usbManager_readReady() && usbManager_getByte(command))
 			{
 				// update the sweep and numSaved
-				flashManager_checkConfig(&numSaved, &sweep, &numDeleted);
+				flashManager_checkConfig(&config);
 				
 				// read the config file
 				// send the number of saved sweeps
 				if (command[0] == 1)
 				{
-					sensorFunctions_sendConfig(&sweep, &numSaved, &numDeleted);
+					sensorFunctions_sendConfig(&config);
 					
 					// also reset the pointer here
-					pointer = numSaved;
+					pointer = config.num_sweeps;
 				}
 				// execute a sweep and save to flash
 				else if (command[0] == 2)
 				{
 #ifdef TESTING
 					// FOR TESTING WITHOUT AD5933
-					testFunctions_saveDummy(&sweep, &numSaved, true);
+					testFunctions_saveDummy(&config, true);
 #else
 					// this command was sent by usb, so usb in the function call is true
-					sensorFunctions_saveSweep(&sweep, &numSaved, true);
+					sensorFunctions_saveSweep(&config, true);
 #endif
 				}
 				// execute a sweep and immedietly send it over usb, do not save to flash
 				else if (command[0] == 3)
 				{
-					sensorFunctions_sweepAndSend(&sweep);
+					sensorFunctions_sweepAndSend(&config.sweep);
 				}
 				// send the pointer sweep over usb
 				else if (command[0] == 4)
 				{
 					// if pointer is at file 0, set it at the most recent sweep saved
-					if (pointer == 0) pointer = numSaved;
+					if (pointer == 0) pointer = config.num_sweeps;
 					
 					// send the sweep at pointer
 					sensorFunctions_sendSweep(pointer);
@@ -194,7 +212,7 @@ void sensorTasks_usb(void *pvParameter)
 				}
 				else if (command[0] == 5)
 				{
-					sensorFunctions_deleteSweeps(numSaved, numDeleted, true);
+					sensorFunctions_deleteSweeps(&config, true);
 				}
 			}
 		}
@@ -234,10 +252,13 @@ bool sensorTasks_init(void)
 	xret = xTaskCreate(sensorTasks_sweep, "sweepTask", configMINIMAL_STACK_SIZE + 340, NULL, 3, &sweepTask_handle);
   if (xret != pdPASS) return false;
 
-	xret = xTaskCreate(sensorTasks_blink, "blinkTask", configMINIMAL_STACK_SIZE + 100, NULL, 1, &blinkTask_handle);
+	xret = xTaskCreate(sensorTasks_blink, "blinkTask", configMINIMAL_STACK_SIZE + 300, NULL, 1, &blinkTask_handle);
   if (xret != pdPASS) return false;
 	
-	xret = xTaskCreate(sensorTasks_usb, "usbTask", configMINIMAL_STACK_SIZE + 640, NULL, 2, &usbTask_handle);
+	//xret = xTaskCreate(sensorTasks_usb, "usbTask", configMINIMAL_STACK_SIZE + 640, NULL, 2, &usbTask_handle);
+  //if (xret != pdPASS) return false;
+	
+	xret = xTaskCreate(sensorTasks_BLE, "BLETask", configMINIMAL_STACK_SIZE + 340, NULL, 2, &usbTask_handle);
   if (xret != pdPASS) return false;
 
   // start the sceduler

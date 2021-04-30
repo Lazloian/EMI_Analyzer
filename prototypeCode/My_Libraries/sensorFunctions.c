@@ -17,13 +17,10 @@
 // Return value:
 //  false if error
 //  true  if success
- bool sensorFunctions_sendConfig(Sweep * sweep, uint32_t * numSaved, uint16_t * numDeleted)
+ bool sensorFunctions_sendConfig(Config * config)
  {
-	// check and update from the config file
-	if (!flashManager_checkConfig(numSaved, sweep, numDeleted)) return false;
-	 
 	// send the number of saved sweeps
-	if (!usbManager_writeBytes(numSaved, sizeof(numSaved))) return false;
+	if (!usbManager_writeBytes(&config->num_sweeps, sizeof(config->num_sweeps))) return false;
 	 
 	// success
 	return true;
@@ -124,10 +121,11 @@
 // Arguments: 
 //	* sweep    : The sweep to execute
 //	* numSaved : The number of sweeps currently saved
+ // 	usb			 : If true, sends confimration over usb that sweep was successful
 // Return value:
 //  false if error saving sweep
 //  true  if sweep saved successfully
- bool sensorFunctions_saveSweep(Sweep * sweep, uint32_t * numSaved, bool usb)
+ bool sensorFunctions_saveSweep(Config * config, bool usb)
 {
 	// allocate memory for sweep data
 	uint32_t * freq = nrf_malloc(MAX_FREQ_SIZE);
@@ -138,14 +136,16 @@
 	
 	uint8_t buff[1] = {1}; // to save the result for usb
 
-	if (AD5933_Sweep(sweep, freq, real, imag))
+	if (AD5933_Sweep(&config->sweep, freq, real, imag))
 	{
-		if (flashManager_saveSweep(freq, real, imag, &sweep->metadata, *numSaved + 1))
+		if (flashManager_saveSweep(freq, real, imag, &config->sweep.metadata, config->num_sweeps + 1))
 		{
-			*numSaved += 1;
-			flashManager_updateNumSweeps(numSaved);
+			// update the number of saved sweeps
+			config->num_sweeps += 1;
+			flashManager_updateConfig(config);
+			
 #ifdef DEBUG_FUNCTIONS
-			NRF_LOG_INFO("FUNCTIONS: Sweep %d saved", *numSaved);
+			NRF_LOG_INFO("FUNCTIONS: Sweep %d saved", config->num_sweeps);
 			NRF_LOG_FLUSH();
 #endif
 			res = true;
@@ -186,11 +186,8 @@
 // Return value:
 //  false if error deleting sweeps
 //  true  if delete successful
-bool sensorFunctions_deleteSweeps(uint32_t numSaved, uint16_t numDeleted, bool usb)
+bool sensorFunctions_deleteSweeps(Config * config, bool usb)
 {
-	uint32_t current; 		// the current sweep to delete
-	current = numSaved; // set current to the number of sweeps saved
-
 	bool stat = true;
 	
 #ifdef DEBUG_LOG
@@ -199,14 +196,17 @@ bool sensorFunctions_deleteSweeps(uint32_t numSaved, uint16_t numDeleted, bool u
 #endif
 	
 	// delete all the sweeps
-	while (current > 0 && stat)
+	while (config->num_sweeps > 0 && stat)
 	{
-		stat = flashManager_deleteFile(current);
-		current--;
-		numDeleted++;
+		stat = flashManager_deleteFile(config->num_sweeps);
+		if (stat)
+		{
+			config->num_sweeps--;
+			config->num_deleted++;
+		}
 	}
 	
-	if (stat && current == 0)
+	if (stat && config->num_sweeps == 0)
 	{
 #ifdef DEBUG_LOG
 		NRF_LOG_INFO("FUNCTIONS: All sweeps deleted");
@@ -221,11 +221,8 @@ bool sensorFunctions_deleteSweeps(uint32_t numSaved, uint16_t numDeleted, bool u
 #endif
 	}
 	
-	// update the number of saved sweeps
-	flashManager_updateNumSweeps(&current);
-	
-	// update the number of deleted sweeps
-	flashManager_updateNumDeleted(&numDeleted);
+	// update the config
+	flashManager_updateConfig(config);
 	
 	// if connected to usb send confirmation of success or failure
 	if (usb)
@@ -251,13 +248,13 @@ void sensorFunctions_set_default(Sweep * sweep)
   // set the default sweep parameters
   sweep->start 							= 1000;
   sweep->delta 							= 100;
-  sweep->steps 							= 490;
-  sweep->cycles 						= 511;
-  sweep->cyclesMultiplier 	= TIMES4;
+  sweep->steps 							= 25;//490;
+  sweep->cycles 						= 25;//511;
+  sweep->cyclesMultiplier 	= NO_MULT;//TIMES4;
   sweep->range 							= RANGE1;
   sweep->clockSource 				= INTERN_CLOCK;
   sweep->clockFrequency 		= CLK_FREQ;
-  sweep->gain 							= GAIN1;
+  sweep->gain 							= GAIN5;
 	sweep->metadata.numPoints = sweep->steps + 1;
 	sweep->metadata.temp			= 100;
 	sweep->metadata.time			= 30;
@@ -281,7 +278,7 @@ bool sensorFunctions_init(void)
   if (!twiManager_init()) return false;
 
   // init USB
-  if (!usbManager_init()) return false;
+  // if (!usbManager_init()) return false;
 	
 	// init flashManager
 	if (!flashManager_init()) return false;
@@ -289,11 +286,11 @@ bool sensorFunctions_init(void)
 	// init memory manager
 	if (nrf_mem_init()) return false;
 	
-	// init rtc
-	//if (!rtcManager_init()) return false;
-	
 	// init gpiote
 	if (!gpioteManager_init()) return false;
+	
+	// init BLE
+	ble_sweep_init();
 	
 #ifdef DEBUG_FUNCTIONS
 	NRF_LOG_INFO("FUNCTIONS: Init Peripherals Success");
@@ -303,10 +300,9 @@ bool sensorFunctions_init(void)
   // reset the AD5933
   if (AD5933_SetControl(NO_OPERATION, RANGE1, GAIN1, INTERN_CLOCK, 1))
 	{
-		// blink all the LEDs
-		gpioteManager_writePin(RAK_LED_2, 1);
+		gpioteManager_writePin(LED_2, 2);
 		nrf_delay_ms(200);
-		gpioteManager_writePin(RAK_LED_2, 0);
+		gpioteManager_writePin(LED_2, 2);
 	}
 	else
 	{

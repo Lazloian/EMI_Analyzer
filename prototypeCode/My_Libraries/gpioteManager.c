@@ -74,15 +74,20 @@ static void gpiote_init(void)
 	err_code = nrf_drv_gpiote_init();
 	APP_ERROR_CHECK(err_code);
 
+#ifdef DEV_KIT
 	// set up LED output, false means that its starts low
 	nrf_drv_gpiote_out_config_t out_config = GPIOTE_CONFIG_OUT_SIMPLE(true);
+#else
+	// set up LED output, false means that its starts low
+	nrf_drv_gpiote_out_config_t out_config = GPIOTE_CONFIG_OUT_SIMPLE(false);
+#endif
 
 	// set up LED 1
-	err_code = nrf_drv_gpiote_out_init(RAK_LED_1, &out_config);
+	err_code = nrf_drv_gpiote_out_init(LED_1, &out_config);
 	APP_ERROR_CHECK(err_code);
 	
 	// set up LED 2
-	err_code = nrf_drv_gpiote_out_init(RAK_LED_2, &out_config);
+	err_code = nrf_drv_gpiote_out_init(LED_2, &out_config);
 	APP_ERROR_CHECK(err_code);
 
 	/* No buttons on the RAK module

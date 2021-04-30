@@ -28,14 +28,8 @@
 #include "sensorFunctions.h"
 #include "sensorTasks.h"
 
-// variable to store the number of saved sweeps
-static uint32_t numSaved = 0;
-
-// create a new sweep
-static Sweep sweep = {0};
-
-// stores the number of sweeps deleted
-static uint16_t numDeleted = 0;
+// stores the sensor config
+static Config config;
 
 // Main function
 int main(void)
@@ -48,29 +42,26 @@ int main(void)
 	
 	// init peripherals for tasks
 	sensorFunctions_init();
-	
+
 	// turn on LED to indicate init
 	gpioteManager_writePin(RAK_LED_1, 1);
-	
+
 	// set the sweep to default parameters
-  sensorFunctions_set_default(&sweep);
-	
+  sensorFunctions_set_default(&config.sweep);
+
 	// load the config files from flash
-	flashManager_checkConfig(&numSaved, &sweep, &numDeleted);
-	
-	// set the sweep to default parameters
-  sensorFunctions_set_default(&sweep);
+	flashManager_checkConfig(&config);
 	
 	// set the sweep to the current default
-	flashManager_updateSavedSweep(&sweep);
+	flashManager_updateConfig(&config);
 	
 	// check if the number of sweeps that have been deleted is greater than FM_MAX_DELETE
-	if (numDeleted >= FM_MAX_DELETE)
+	if (config.num_deleted >= FM_MAX_DELETE)
 	{
 		if (flashManager_collectGarbage())
 		{
-			numDeleted = 0;
-			flashManager_updateNumDeleted(&numDeleted);
+			config.num_deleted = 0;
+			flashManager_updateConfig(&config);
 		}
 	}
 	
@@ -79,7 +70,7 @@ int main(void)
 	
 	// init the tasks
 	sensorTasks_init(); // this function should never return
-	
+
 	// SHOULD NEVER RUN THE BELOW CODE
 	
   while (true)

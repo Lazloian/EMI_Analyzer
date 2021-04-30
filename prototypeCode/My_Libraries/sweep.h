@@ -44,4 +44,14 @@ typedef struct sweepParams
 	// sweep metaData
 	MetaData metadata;
 } Sweep;
+
+// struct to hold sensor config
+typedef struct configFile
+{
+  uint32_t num_sweeps;   // the number of sweeps saved to flash
+  uint16_t num_deleted;  // the number of sweeps that have been deleted
+  uint16_t num_sent;   // the number of sweeps that have been sent over BLE
+
+  Sweep sweep;       // saved sweep paramenters
+} Config;
 #endif

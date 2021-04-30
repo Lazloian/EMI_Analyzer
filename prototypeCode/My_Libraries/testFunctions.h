@@ -21,7 +21,7 @@
 
 #include "mem_manager.h"
 
-bool testFunctions_saveDummy (Sweep * sweep, uint32_t * numSaved, bool usb);
+bool testFunctions_saveDummy (Config * config, bool usb);
 bool testFunctions_dummyData(void * buff, uint32_t num_bytes);
 
 #ifdef DEBUG_TEST

@@ -21,6 +21,14 @@
 #include "nrf_log_default_backends.h"
 #endif
 
+#ifdef DEV_KIT
+#define LED_1 NRF_GPIO_PIN_MAP(0, 13)
+#define LED_2 NRF_GPIO_PIN_MAP(0, 14)
+#else
+#define LED_1 RAK_LED_1
+#define LED_2 RAK_LED_2
+#endif
+
 bool gpioteManager_getEvent(int * buff);
 bool gpioteManager_writePin(uint32_t pin, uint8_t val);
 bool gpioteManager_init(void);
