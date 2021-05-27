@@ -140,9 +140,6 @@
 	{
 		if (flashManager_saveSweep(freq, real, imag, &config->sweep.metadata, config->num_sweeps + 1))
 		{
-			// update the number of saved sweeps
-			config->num_sweeps += 1;
-			flashManager_updateConfig(config);
 			
 #ifdef DEBUG_FUNCTIONS
 			NRF_LOG_INFO("FUNCTIONS: Sweep %d saved", config->num_sweeps);
@@ -248,7 +245,7 @@ void sensorFunctions_set_default(Sweep * sweep)
   // set the default sweep parameters
   sweep->start 							= 1000;
   sweep->delta 							= 100;
-  sweep->steps 							= 25;//490;
+  sweep->steps 							= 490;
   sweep->cycles 						= 25;//511;
   sweep->cyclesMultiplier 	= NO_MULT;//TIMES4;
   sweep->range 							= RANGE1;
@@ -273,6 +270,9 @@ bool sensorFunctions_init(void)
   NRF_LOG_INFO("FUNCTIONS: Wireless Sensor Started");
   NRF_LOG_FLUSH();
 #endif
+	
+	// init BLE (must be before FDS init or else FDS init will fail)
+	ble_sweep_init();
 
   // init twi
   if (!twiManager_init()) return false;
@@ -281,16 +281,13 @@ bool sensorFunctions_init(void)
   // if (!usbManager_init()) return false;
 	
 	// init flashManager
-	if (!flashManager_init()) return false;
+	//if (!flashManager_init()) return false;
 	
 	// init memory manager
 	if (nrf_mem_init()) return false;
 	
 	// init gpiote
 	if (!gpioteManager_init()) return false;
-	
-	// init BLE
-	ble_sweep_init();
 	
 #ifdef DEBUG_FUNCTIONS
 	NRF_LOG_INFO("FUNCTIONS: Init Peripherals Success");
@@ -307,8 +304,8 @@ bool sensorFunctions_init(void)
 	else
 	{
 #ifdef DEBUG_FUNCTIONS
-	NRF_LOG_INFO("FUNCTIONS: AD5933 Init Fail");
-  NRF_LOG_FLUSH();
+		NRF_LOG_INFO("FUNCTIONS: AD5933 Init Fail");
+		NRF_LOG_FLUSH();
 #endif
 	}
 	

@@ -22,11 +22,9 @@
 #include "usbManager.h"
 #include "gpioteManager.h"
 #include "rak.h"
+#include "ble_sweep.h"
 
 #include "mem_manager.h"
-
-// BLE
-#include "ble_sweep.h"
 
 #ifdef DEBUG_FUNCTIONS
 #include "nrf_log.h"

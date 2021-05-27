@@ -8,6 +8,9 @@
  */
  
  #include "flashManager.h"
+ 
+// --- My Variables ---
+static uint8_t processing = 0; // Holds the number of FDS commands that are in the queue
 
 // --- FDS Variables ---
 
@@ -26,6 +29,15 @@ static char const * fds_evt_str[] =
 static bool volatile m_fds_initialized;
 
 // --- User Functions ---
+
+// Returns if the current queued FDS command is done or not
+// Return value:
+//  complete
+bool flashManager_checkComplete(void)
+{
+	if (processing) return false;
+	return true;
+}
 
 // Deletes a sweep from flash
 // Arguments: 
@@ -247,7 +259,8 @@ static bool flashManager_createRecord(fds_record_desc_t * record_desc, uint32_t 
   record.data.p_data       = p_data;
   record.data.length_words = (num_bytes + 3) / 4; // account for remainder
   
-  // write the record to flash
+  // queue write record
+	processing++;
   ret = fds_record_write(record_desc, &record);
   
   // check if flash full
@@ -297,7 +310,8 @@ static bool flashManager_updateRecord(fds_record_desc_t * record_desc, uint32_t 
   record.data.p_data       = p_data;
   record.data.length_words = (num_bytes + 3) / 4; // account for remainder
   
-  // write the record to flash
+  // queue the record update
+	processing++;
   ret = fds_record_update(record_desc, &record);
   
   // check if flash full
@@ -417,6 +431,9 @@ static bool flashManager_deleteRecord(fds_record_desc_t * record_desc)
   NRF_LOG_INFO("FLASH: Deleting record");
   NRF_LOG_FLUSH();
 #endif
+	
+	// queue record delete
+	processing++;
   if (fds_record_delete(record_desc) != NRF_SUCCESS)
   {
 #ifdef DEBUG_FLASH
@@ -425,6 +442,7 @@ static bool flashManager_deleteRecord(fds_record_desc_t * record_desc)
 #endif
     return false;
   }
+	
   // success
   return true;
 }
@@ -441,6 +459,9 @@ bool flashManager_deleteFile(uint32_t file_id)
   NRF_LOG_INFO("FLASH: Deleting file %d", file_id);
   NRF_LOG_FLUSH();
 #endif
+	
+	// queue file delete
+	processing++;
   if (fds_file_delete(file_id) != NRF_SUCCESS)
   {
 #ifdef DEBUG_FLASH
@@ -449,6 +470,7 @@ bool flashManager_deleteFile(uint32_t file_id)
 #endif
     return false;
   }
+	
   // success
   return true;
 }
@@ -463,6 +485,7 @@ bool flashManager_collectGarbage(void)
   NRF_LOG_INFO("FLASH: Running garbage collection");
   NRF_LOG_FLUSH();
 #endif
+	processing++;
   if (fds_gc() != NRF_SUCCESS)
   {
 #ifdef DEBUG_FLASH
@@ -540,7 +563,23 @@ static void fds_evt_handler(fds_evt_t const * p_evt)
           NRF_LOG_INFO("FLASH: Record key:\t0x%04x", p_evt->write.record_key);
 #endif
         }
+				processing--;
       } break;
+			
+		case FDS_EVT_UPDATE:
+		{
+			processing--;
+		} break;
+		
+		case FDS_EVT_DEL_FILE:
+		{
+			processing--;
+		} break;
+		
+		case FDS_EVT_GC:
+		{
+			processing--;
+		}
 
     case FDS_EVT_DEL_RECORD:
       {
@@ -552,6 +591,7 @@ static void fds_evt_handler(fds_evt_t const * p_evt)
           NRF_LOG_INFO("FLASH: Record key:\t0x%04x", p_evt->del.record_key);
 #endif
         }
+				processing--;
       } break;
 
     default:

@@ -51,6 +51,7 @@ bool flashManager_getSweep(uint32_t * freq, uint16_t * real, uint16_t * imag, Me
 bool flashManager_updateConfig(Config * config);
 bool flashManager_deleteSweep(uint32_t sweep_num);
 bool flashManager_collectGarbage(void);
+bool flashManager_checkComplete(void);
 
 // FDS helper functions
 static bool flashManager_createRecord(fds_record_desc_t * record_desc, uint32_t file_id, uint32_t record_key, void const * p_data, uint32_t num_bytes);

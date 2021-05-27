@@ -1,14 +1,8 @@
 /*
-Author: Thirawat Bureetes
-Email: tbureete@purdue.edu
+Author: Thirawat Bureetes, Henry Silva
+Email: tbureete@purdue.edu, silva67@purdue.edu
 Date: 4/20/2021
 Description: A file contains fucntions and parameters for transfering sweep file via ble.
-*/
-
-/* HOW TO CALL BLE SEND PACKET
-package_info = pack_sweep_data(package, package_sent+1);
-send_package_ble(package_info.ptr, package_info.package_size);
-package_sent = package_info.stop_freq;
 */
 
 #include "ble_sweep.h"
@@ -25,89 +19,199 @@ static ble_uuid_t m_adv_uuids[]          =                                      
     {BLE_UUID_NUS_SERVICE, NUS_SERVICE_UUID_TYPE}
 };
 
-static uint32_t package_sent = 0;
+static MetaData *meta_data_ptr;
+static uint32_t *freq_ptr;
+static uint16_t *real_ptr, *imag_ptr;
 static uint8_t package[BLE_NUS_MAX_DATA_LEN];
+static PackageInfo package_info; 
+static uint32_t package_sent = 0;
+static uint8_t ble_command;
+static bool command_received = false;
+static bool advertising = false;
 
-
-static MetaData meta_data = {
-	.time = 10, 
-	.temp = 25, 
-	.numPoints = 300
-};
-
-//static PackageInfo package_info; 
-
-PackageInfo pack_sweep_data(uint8_t *package, uint16_t start_freq, uint32_t *freq, uint16_t *real, uint16_t *imag) 
-//PackageInfo pack_sweep_data(uint8_t *package, uint16_t start_freq)
+/*
+This function will check the connection.
+*/
+uint8_t ble_check_connection(void)
+{
+	if (m_conn_handle == BLE_CONN_HANDLE_INVALID) 
 	{
+		return BLE_CON_DEAD;
+	}
+	else
+	{
+		return BLE_CON_ALIVE;
+	}
+}
+
+/*
+This function will return if ble is currently advertising
+*/
+bool ble_is_advertising(void)
+{
+  return advertising;
+}
+
+/*
+This function checks if a new command has been received.
+It sets command received to false if it was true.
+*/
+uint8_t ble_check_command(void)
+{
+  if (command_received)
+  {
+    command_received = false;
+    return ble_command;
+  }
+  else
+  {
+    return NULL;
+  }
+}
+
+/*
+This function will handle data transfer. Need to call this function periodically if the connection is alive.
+Need to do,  get pointer of metadata, real, imag and freq (separated function). Will impliment asap.
+*/
+uint8_t ble_command_handler(void)
+{
+	uint8_t transfer_progress = BLE_TRANSFER_IN_PROGRESS;
+	if (ble_check_connection() == BLE_CON_ALIVE && ble_check_command())
+	{
+		switch (ble_command)
+		{
+			case 48:
+				send_meta_data_ble(meta_data_ptr);
+				package_sent = 0;
+				transfer_progress = BLE_TRANSFER_IN_PROGRESS;
+				break;
+			
+			case 49:
+				package_info = pack_sweep_data(package_sent, meta_data_ptr, freq_ptr, real_ptr, imag_ptr);
+				send_package_ble(package_info.ptr, package_info.package_size);
+				package_sent = package_info.stop_freq;
+				
+				package_info = pack_sweep_data(package_sent, meta_data_ptr, freq_ptr, real_ptr, imag_ptr);
+				send_package_ble(package_info.ptr, package_info.package_size);
+				package_sent = package_info.stop_freq;
+			
+				package_info = pack_sweep_data(package_sent, meta_data_ptr, freq_ptr, real_ptr, imag_ptr);
+				send_package_ble(package_info.ptr, package_info.package_size);
+				package_sent = package_info.stop_freq;
+			
+				NRF_LOG_INFO("Sent frequency upto #%d", package_sent);
+			
+				if (package_sent <= meta_data_ptr->numPoints)
+				{
+					transfer_progress = BLE_TRANSFER_IN_PROGRESS;
+				}
+				else
+				{
+					transfer_progress = BLE_TRANSFER_COMPLETE;
+				}
+				break;
+		}
+	}
+	
+	return transfer_progress;
+	
+}
+
+/* This function stages a sweep to be sent over BLE.
+ * It sets the pointers in this file to the data to send.
+ * IMPORTANT: Sweep must be unstaged when connection is done with unstage_sweep()
+ */
+bool ble_stage_sweep(uint32_t *freq, uint16_t *real, uint16_t *imag, MetaData *meta)
+{ 
+  // make sure the pointers are not NULL
+  if (freq != NULL && real != NULL && imag != NULL && meta != NULL)
+  {
+    // set the pointers
+    freq_ptr = freq;
+    real_ptr = real,
+    imag_ptr = imag;
+    meta_data_ptr = meta;
+		
+		NRF_LOG_INFO("Sweeps loaded with %d points", meta->numPoints);
+		NRF_LOG_FLUSH();
+
+    return true;
+  }
+  else
+  {
+    return false;
+  }
+}
+
+void ble_unstage_sweep(void)
+{
+  freq_ptr = NULL;
+  real_ptr = NULL;
+  imag_ptr = NULL;
+  meta_data_ptr = NULL;
+}
+
+PackageInfo pack_sweep_data(uint16_t start_freq, MetaData *meta_data, uint32_t *freq, uint16_t *real, uint16_t *imag)
+{
 	PackageInfo package_info = {
-	.ptr = package,
-	.start_freq = start_freq,
-	.stop_freq = start_freq,
-	.package_size = 0
+		.ptr = package,
+		.start_freq = start_freq,
+		.stop_freq = start_freq,
+		.package_size = 0
 	};
-	static uint16_t current_size; 
-	static uint8_t *ptr;
-	// static uint32_t freq;
-	// static uint16_t real, imag;
-	*package = 0;
-	package++;
-	for (package_info.package_size=1; package_info.package_size+8 < BLE_NUS_MAX_DATA_LEN;)
+	
+	for (uint16_t i=0; i < start_freq; i++)
 	{
-		// freq = package_info.stop_freq;
-		// real = package_info.stop_freq;
-		// imag = package_info.stop_freq;
-		// ptr = (uint8_t *)&freq;
-		ptr = (uint8_t *)freq;
+		freq++;
+		real++;
+		imag++;
+	}
+	
+	static uint16_t current_size; 
+	static uint8_t *data_ptr, *package_ptr;
+	
+	package_ptr = package_info.ptr;
+	package_ptr++;
+	for (package_info.package_size=1; package_info.package_size+8 < BLE_NUS_MAX_DATA_LEN && package_info.stop_freq < meta_data->numPoints;)
+	{
+		data_ptr = (uint8_t *)freq;
 		for (current_size=package_info.package_size; package_info.package_size < current_size+4; package_info.package_size++) {
-			*package = *ptr;
-			ptr++;
-			package++;
+			*package_ptr = *data_ptr;
+			data_ptr++;
+			package_ptr++;
 		}
-		// ptr = (uint8_t *)&real;
-		ptr = (uint8_t *)real;
+		
+		
+		data_ptr = (uint8_t *)real;
 		for (current_size=package_info.package_size; package_info.package_size < current_size+2; package_info.package_size++) {
-			*package = *ptr;
-			ptr++;
-			package++;
+			*package_ptr = *data_ptr;
+			data_ptr++;
+			package_ptr++;
 		}
-		// ptr = (uint8_t *)&imag;
-		ptr = (uint8_t *)imag;
+		
+		
+		data_ptr = (uint8_t *)imag;
 		for (current_size=package_info.package_size; package_info.package_size < current_size+2; package_info.package_size++) {
-			*package = *ptr;
-			ptr++;
-			package++;
+			*package_ptr = *data_ptr;
+			data_ptr++;
+			package_ptr++;
 		}
+		
 		freq++;
 		real++;
 		imag++;
 		package_info.stop_freq++;
 	}
 	*package_info.ptr = package_info.stop_freq - package_info.start_freq;
-	package_info.stop_freq--;
 	return package_info;
 }
 
-
-void send_package_ble(uint8_t *package, uint16_t package_size)
-{
-		uint32_t err_code;
-		do
-		{
-				err_code = ble_nus_data_send(&m_nus, package, &package_size, m_conn_handle);
-				if ((err_code != NRF_ERROR_INVALID_STATE) &&
-						(err_code != NRF_ERROR_RESOURCES) &&
-						(err_code != NRF_ERROR_NOT_FOUND))
-				{
-						APP_ERROR_CHECK(err_code);
-				}
-		} while (err_code == NRF_ERROR_RESOURCES);
-}
 
 void send_meta_data_ble(MetaData *meta_data)
 {
 	
 	NRF_LOG_INFO("Sending metadata.");
+	NRF_LOG_INFO("The sweep has %d frequency data", meta_data->numPoints);
 	static uint8_t buff[11];
 	static uint8_t *ptr; 
 	uint8_t i = 1;
@@ -130,6 +234,56 @@ void send_meta_data_ble(MetaData *meta_data)
 	
 	send_package_ble(buff, (uint16_t)sizeof(buff));
 }
+
+/**@brief Function for 
+ */
+void ble_advertise_begin(void)
+{
+    uint32_t err_code = ble_advertising_start(&m_advertising, BLE_ADV_MODE_FAST);
+    APP_ERROR_CHECK(err_code);
+}
+
+void send_package_ble(uint8_t *package_to_send, uint16_t size_to_send)
+{
+		uint32_t err_code;
+		do
+		{
+				err_code = ble_nus_data_send(&m_nus, package_to_send, &size_to_send, m_conn_handle);
+				if ((err_code != NRF_ERROR_INVALID_STATE) &&
+						(err_code != NRF_ERROR_RESOURCES) &&
+						(err_code != NRF_ERROR_NOT_FOUND))
+				{
+						APP_ERROR_CHECK(err_code);
+				}
+		} while (err_code == NRF_ERROR_RESOURCES);
+}
+
+
+/**@brief Function for handling the data from the Nordic UART Service.
+ *
+ * @details This function will process the data received from the Nordic UART BLE Service and send
+ *          it to the UART module.
+ *
+ * @param[in] p_evt       Nordic UART Service event.
+ */
+/**@snippet [Handling the data received over BLE] */
+static void nus_data_handler(ble_nus_evt_t * p_evt)
+{
+
+    if (p_evt->type == BLE_NUS_EVT_RX_DATA)
+    {
+        NRF_LOG_DEBUG("Received data from BLE NUS. Writing data on UART.");
+        NRF_LOG_HEXDUMP_DEBUG(p_evt->params.rx_data.p_data, p_evt->params.rx_data.length);
+				
+//				NRF_LOG_INFO("Recieved: %d", (uint8_t)p_evt->params.rx_data.p_data[0]);
+				ble_command = (uint8_t)p_evt->params.rx_data.p_data[0];
+
+        // set command_received to true
+        command_received = true;
+    }
+
+}
+
 
 /**@brief Function for assert macro callback.
  *
@@ -156,15 +310,6 @@ static void timers_init(void)
     APP_ERROR_CHECK(err_code);
 }
 
-/**@brief Function for initializing power management.
- */
-static void power_management_init(void)
-{
-    ret_code_t err_code;
-    err_code = nrf_pwr_mgmt_init();
-    APP_ERROR_CHECK(err_code);
-}
-
 static void on_conn_params_evt(ble_conn_params_evt_t * p_evt)
 {
     uint32_t err_code;
@@ -187,7 +332,6 @@ static void conn_params_error_handler(uint32_t nrf_error)
 }
 
 
-
 /**@brief Function for handling advertising events.
  *
  * @details This function will be called for advertising events which are passed to the application.
@@ -201,14 +345,15 @@ static void on_adv_evt(ble_adv_evt_t ble_adv_evt)
     switch (ble_adv_evt)
     {
         case BLE_ADV_EVT_FAST:
+            advertising = true;
             break;
         case BLE_ADV_EVT_IDLE:
+            advertising = false;
             break;
         default:
             break;
     }
 }
-
 
 /**@brief Function for handling BLE events.
  *
@@ -221,21 +366,34 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context)
     switch (p_ble_evt->header.evt_id)
     {
         case BLE_GAP_EVT_CONNECTED:
+#ifdef DEBUG_BLE
             NRF_LOG_INFO("Connected");
+#endif
             m_conn_handle = p_ble_evt->evt.gap_evt.conn_handle;
             err_code = nrf_ble_qwr_conn_handle_assign(&m_qwr, m_conn_handle);
             APP_ERROR_CHECK(err_code);
             break;
 
         case BLE_GAP_EVT_DISCONNECTED:
+#ifdef DEBUG_BLE
             NRF_LOG_INFO("Disconnected");
+#endif
             // LED indication will be changed when advertising starts.
             m_conn_handle = BLE_CONN_HANDLE_INVALID;
+            // set command received to false
+            command_received = false;
+            // unstage the current sweep
+            ble_unstage_sweep();
+#ifdef DEBUG_BLE
+						NRF_LOG_INFO("Stop Advertising");
+#endif
             break;
 
         case BLE_GAP_EVT_PHY_UPDATE_REQUEST:
         {
+#ifdef DEBUG_BLE
             NRF_LOG_DEBUG("PHY update request.");
+#endif
             ble_gap_phys_t const phys =
             {
                 .rx_phys = BLE_GAP_PHY_AUTO,
@@ -284,11 +442,15 @@ void gatt_evt_handler(nrf_ble_gatt_t * p_gatt, nrf_ble_gatt_evt_t const * p_evt)
     if ((m_conn_handle == p_evt->conn_handle) && (p_evt->evt_id == NRF_BLE_GATT_EVT_ATT_MTU_UPDATED))
     {
         m_ble_nus_max_data_len = p_evt->params.att_mtu_effective - OPCODE_LENGTH - HANDLE_LENGTH;
+#ifdef DEBUG_BLE
         NRF_LOG_INFO("Data len is set to 0x%X(%d)", m_ble_nus_max_data_len, m_ble_nus_max_data_len);
+#endif
     }
+#ifdef DEBUG_BLE
     NRF_LOG_DEBUG("ATT MTU exchange completed. central 0x%x peripheral 0x%x",
                   p_gatt->att_mtu_desired_central,
                   p_gatt->att_mtu_desired_periph);
+#endif
 }
 
 
@@ -374,6 +536,7 @@ static void nrf_qwr_error_handler(uint32_t nrf_error)
     APP_ERROR_HANDLER(nrf_error);
 }
 
+
 /**@brief Function for initializing services that will be used by the application.
  */
 static void services_init(void)
@@ -390,6 +553,8 @@ static void services_init(void)
 
     // Initialize NUS.
     memset(&nus_init, 0, sizeof(nus_init));
+
+    nus_init.data_handler = nus_data_handler;
 
     err_code = ble_nus_init(&m_nus, &nus_init);
     APP_ERROR_CHECK(err_code);
@@ -416,6 +581,7 @@ static void advertising_init(void)
     init.config.ble_adv_fast_interval = APP_ADV_INTERVAL;
     init.config.ble_adv_fast_timeout  = APP_ADV_DURATION;
     init.evt_handler = on_adv_evt;
+		init.config.ble_adv_on_disconnect_disabled = true;
 
     err_code = ble_advertising_init(&m_advertising, &init);
     APP_ERROR_CHECK(err_code);
@@ -449,25 +615,9 @@ static void conn_params_init(void)
 }
 
 
-
-
-/**@brief Function for starting advertising.
- */
-static void advertising_start(void)
-{
-    uint32_t err_code = ble_advertising_start(&m_advertising, BLE_ADV_MODE_FAST);
-    APP_ERROR_CHECK(err_code);
-}
-
 void ble_sweep_init(void)
 {
-	bool erase_bonds;
-	
-#ifdef DEBUG_BLE
-	log_init();
-#endif
 	timers_init();
-	power_management_init();
 	ble_stack_init();
 	gap_params_init();
 	gatt_init();
@@ -475,7 +625,7 @@ void ble_sweep_init(void)
 	advertising_init();
 	conn_params_init();
 	
-	advertising_start();
+#ifdef DEBUG_BLE
+	NRF_LOG_INFO("Debug logging for BLE over RTT started.");
+#endif
 }
-
-

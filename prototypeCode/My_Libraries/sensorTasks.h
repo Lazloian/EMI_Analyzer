@@ -20,6 +20,7 @@
 #include "FreeRTOS.h"
 #include "task.h"
 #include "timers.h"
+#include "nrf_sdh_freertos.h"
 
 #ifdef DEBUG_TASKS
 #include "nrf_log.h"
@@ -46,13 +47,14 @@
 #define MS_TO_TICK(X)  (int)(X * ((float) 1 / portTICK_PERIOD_MS))		// macro to convert ms to ticks
 #define TICK_TO_SEC(X) (int)(X * ((float) portTICK_PERIOD_MS / 1000)) // macro to convert ticks to seconds
 
-#define SWEEP_PERIOD 1800   // period between sweeps in seconds
-#define INPUT_PERIOD 250	 // period between input checks in milliseconds
-#define BLINK_PERIOD 10   // period between RTC_LED blinks in seconds
-#define USB_PERIOD   500 // period between usb checks in millisenconds
-#define BLE_PERIOD	 5	// period between BLE task execution in seconds
+#define SWEEP_PERIOD 1800    // period between sweeps in seconds
+#define INPUT_PERIOD 250 	  // period between input checks in milliseconds
+#define BLINK_PERIOD 10    // period between RTC_LED blinks in seconds
+#define USB_PERIOD   500  // period between usb checks in millisenconds
+#define BLE_PERIOD	 5	 // period between BLE task execution in seconds
+#define ADV_PERIOD   60 // period between advertisements
 
-#define START_DELAY	 3 // delay in seconds for sweeps to start after power on. At least a second is needed for usb
+#define START_DELAY	 8 // delay in seconds for sweeps to start after power on. At least a second is needed for usb
 
 // Tasks
 void sensorTasks_input(void * pvParameter);
@@ -60,9 +62,14 @@ void sensorTasks_sweep(void * pvParameter);
 void sensorTasks_blink(void * pvParameter);
 void sensorTasks_usb(void * pvParameter);
 void sensorTasks_BLE(void * pvParameter);
+void sensorTasks_adv(void * pvParameter);
 
 // Idle hook
 void vApplicationIdleHook(void);
+
+// Helper Function
+static void waitFDS(void);
+static void readyBLE(void * parameter);
 
 // Init
 bool sensorTasks_init(void);

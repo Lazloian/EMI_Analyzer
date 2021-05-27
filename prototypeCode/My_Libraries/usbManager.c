@@ -268,7 +268,6 @@ static void cdc_acm_user_ev_handler(app_usbd_class_inst_t const * p_inst,
   {
     case APP_USBD_CDC_ACM_USER_EVT_PORT_OPEN:
       {
-        // tx_ready = true;
         /*Setup first transfer*/
         ret_code_t ret = app_usbd_cdc_acm_read(&m_app_cdc_acm, m_rx_buffer, READ_SIZE);
         UNUSED_VARIABLE(ret);
@@ -276,7 +275,6 @@ static void cdc_acm_user_ev_handler(app_usbd_class_inst_t const * p_inst,
       }
     case APP_USBD_CDC_ACM_USER_EVT_PORT_CLOSE:
 		{
-			//tx_ready = false;
       rx_ready = false;
       break;
 		}
@@ -302,11 +300,9 @@ static void usbd_user_ev_handler(app_usbd_event_type_t event)
   switch (event)
   {
     case APP_USBD_EVT_DRV_SUSPEND:
-      //bsp_board_led_off(LED_USB_RESUME);
 			usb_ready = false;
       break;
     case APP_USBD_EVT_DRV_RESUME:
-      //bsp_board_led_on(LED_USB_RESUME);
 			usb_ready = true;
       break;
     case APP_USBD_EVT_STARTED:
@@ -314,7 +310,6 @@ static void usbd_user_ev_handler(app_usbd_event_type_t event)
     case APP_USBD_EVT_STOPPED:
       app_usbd_disable();
 			usb_ready = false;
-      //bsp_board_led_off(LED_USB_RESUME);
       break;
     case APP_USBD_EVT_POWER_DETECTED:
       if (!nrf_drv_usbd_is_enabled())
