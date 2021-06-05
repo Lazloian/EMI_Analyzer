@@ -35,7 +35,14 @@ static bool volatile m_fds_initialized;
 //  complete
 bool flashManager_checkComplete(void)
 {
-	if (processing) return false;
+	if (processing) 
+	{
+#ifdef DEBUG_FLASH
+		NRF_LOG_INFO("FLASH: Processing is %d", processing);
+		NRF_LOG_FLUSH();
+#endif
+		return false;
+	}
 	return true;
 }
 
@@ -117,6 +124,16 @@ bool flashManager_saveSweep(uint32_t * freq, uint16_t * real, uint16_t * imag, M
 #endif
 
   fds_record_desc_t record_desc;
+	
+	// check if the max number of files has been reached (file num happens to the sweep num)
+	if (sweep_num > FM_MAX_FILES)
+	{
+#ifdef DEBUG_FLASH
+		NRF_LOG_INFO("FLASH: Max Number of Sweeps Reached. Not Saving", sweep_num);
+		NRF_LOG_FLUSH();
+#endif
+		return false;
+	}
 
   // save frequency data
   if (!flashManager_createRecord(&record_desc, sweep_num, SWEEP_FREQ, freq, metadata->numPoints * sizeof(uint32_t))) return false;
@@ -149,6 +166,10 @@ bool flashManager_updateConfig(Config * config)
 {
 #ifdef DEBUG_FLASH
   NRF_LOG_INFO("FLASH: Updating the config file");
+	NRF_LOG_INFO("FLASH: Saved sweeps: %d", config->num_sweeps);
+  NRF_LOG_INFO("FLASH: Deleted sweeps: %d", config->num_deleted);
+  NRF_LOG_INFO("FLASH: Sent sweeps: %d", config->num_sent);
+	NRF_LOG_INFO("FLASH: Device ID: %d", config->device_id);
   NRF_LOG_FLUSH();
 #endif
 
@@ -217,15 +238,17 @@ bool flashManager_init(void)
   (void) fds_register(fds_evt_handler);
 
   // init fds and check for error
+	processing++;
   ret = fds_init();
   APP_ERROR_CHECK(ret);
-	
   // Wait for fds to initialize.
-  wait_for_fds_ready();
+  //wait_for_fds_ready();
 	
+	/*
 	// check FDS status
 	ret = fds_stat(&stat);
   APP_ERROR_CHECK(ret);
+	*/
 	
 	return true;
 }
@@ -270,6 +293,7 @@ static bool flashManager_createRecord(fds_record_desc_t * record_desc, uint32_t 
     NRF_LOG_INFO("FLASH: Flash full, write record fail", record_key, file_id);
     NRF_LOG_FLUSH();
 #endif
+		processing--;
     return false;
   } // if fail, but not flash full then it is a bigger problem
   else
@@ -321,6 +345,7 @@ static bool flashManager_updateRecord(fds_record_desc_t * record_desc, uint32_t 
     NRF_LOG_INFO("FLASH: Flash full, write record fail", record_key, file_id);
     NRF_LOG_FLUSH();
 #endif
+		processing--;
     return false;
   } // if fail, but not flash full then it is a bigger problem
   else
@@ -440,6 +465,7 @@ static bool flashManager_deleteRecord(fds_record_desc_t * record_desc)
     NRF_LOG_INFO("FLASH: Record delete fail");
     NRF_LOG_FLUSH();
 #endif
+		processing--;
     return false;
   }
 	
@@ -468,6 +494,7 @@ bool flashManager_deleteFile(uint32_t file_id)
     NRF_LOG_INFO("FLASH: File delete fail");
     NRF_LOG_FLUSH();
 #endif
+		processing--;
     return false;
   }
 	
@@ -492,6 +519,7 @@ bool flashManager_collectGarbage(void)
     NRF_LOG_INFO("FLASH: Garbage collection fail");
     NRF_LOG_FLUSH();
 #endif
+		processing--;
     return false;
   }
   // success
@@ -549,7 +577,7 @@ static void fds_evt_handler(fds_evt_t const * p_evt)
     case FDS_EVT_INIT:
       if (p_evt->result == NRF_SUCCESS)
       {
-        m_fds_initialized = true;
+        processing--;//m_fds_initialized = true;
       }
       break;
 
@@ -579,6 +607,7 @@ static void fds_evt_handler(fds_evt_t const * p_evt)
 		case FDS_EVT_GC:
 		{
 			processing--;
+			break;
 		}
 
     case FDS_EVT_DEL_RECORD:
@@ -597,6 +626,10 @@ static void fds_evt_handler(fds_evt_t const * p_evt)
     default:
       break;
   }
+#ifdef DEBUG_FLASH
+	NRF_LOG_INFO("FLASH: Processing %d", processing);
+	NRF_LOG_FLUSH();
+#endif
 }
 
 /**@brief   Wait for fds to initialize. */

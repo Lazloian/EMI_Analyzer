@@ -52,7 +52,7 @@
 #define BLINK_PERIOD 10    // period between RTC_LED blinks in seconds
 #define USB_PERIOD   500  // period between usb checks in millisenconds
 #define BLE_PERIOD	 5	 // period between BLE task execution in seconds
-#define ADV_PERIOD   60 // period between advertisements
+#define ADV_PERIOD   40 // period between advertisements
 
 #define START_DELAY	 8 // delay in seconds for sweeps to start after power on. At least a second is needed for usb
 
@@ -67,11 +67,13 @@ void sensorTasks_adv(void * pvParameter);
 // Idle hook
 void vApplicationIdleHook(void);
 
-// Helper Function
-static void waitFDS(void);
-static void readyBLE(void * parameter);
-
 // Init
 bool sensorTasks_init(void);
+
+// Helper Function
+void init_peripherals(void);
+void waitFDS(void);
+void readyBLE(void * parameter);
+static bool delete_sweeps(Config * config, bool usb);
 
 #endif

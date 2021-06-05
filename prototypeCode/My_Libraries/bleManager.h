@@ -19,32 +19,21 @@ Description: A header file contains fucntions and parameters for transfering swe
 #include "app_timer.h"
 #include "ble_nus.h"
 #include "app_util_platform.h"
-#include "nrf_pwr_mgmt.h"
 #include "nrf_delay.h"
+#include "nrf_drv_power.h"
 
-#ifdef BLE_DEV
-#include "nordic_common.h"
-#include "nrf.h"
-#include "bsp_btn_ble.h"
-#include "app_uart.h"
-#if defined (UART_PRESENT)
-#include "nrf_uart.h"
-#endif
-#if defined (UARTE_PRESENT)
-#include "nrf_uarte.h"
-#endif
-#endif
-
+#ifdef DEBUG_BLE
 #include "nrf_log.h"
 #include "nrf_log_ctrl.h"
 #include "nrf_log_default_backends.h"
+#endif
 
 #include "sweep.h"
 
 
 #define APP_BLE_CONN_CFG_TAG            1                                           /**< A tag identifying the SoftDevice BLE configuration. */
 
-#define DEVICE_NAME                     "EMI_BLE_DEV"                               /**< Name of device. Will be included in the advertising data. */
+#define DEVICE_NAME                     "EMI_NO_NAME"                               /**< Name of device. Will be included in the advertising data. */
 #define NUS_SERVICE_UUID_TYPE           BLE_UUID_TYPE_VENDOR_BEGIN                  /**< UUID type for the Nordic UART Service (vendor specific). */
 
 #define APP_BLE_OBSERVER_PRIO           3                                           /**< Application's BLE observer priority. You shouldn't need to modify this value. */
@@ -72,10 +61,6 @@ Description: A header file contains fucntions and parameters for transfering swe
 #define BLE_TRANSFER_IN_PROGRESS		1
 #define BLE_TRANSFER_COMPLETE 			0
 
-#ifdef BLE_DEV
-#define DUMMY_SWEEP_SIZE                500                                        
-#endif
-
 typedef struct package_info
 {
 	uint8_t *ptr;
@@ -84,15 +69,15 @@ typedef struct package_info
 	uint16_t package_size;
 } PackageInfo;
 
-void ble_sweep_init(void);
-void send_meta_data_ble(MetaData *meta_data);
-bool ble_stage_sweep(uint32_t *freq, uint16_t *real, uint16_t *imag, MetaData *meta);
-void ble_unstage_sweep(void);
-void send_package_ble(uint8_t *package, uint16_t package_size);
-PackageInfo pack_sweep_data(uint16_t start_freq, MetaData *meta_data, uint32_t *freq, uint16_t *real, uint16_t *imag);
-uint8_t ble_check_connection(void);
-uint8_t ble_check_command(void);
-bool ble_is_advertising(void);
-uint8_t ble_command_handler(void);
-void ble_advertise_begin(void);
+// User Functions
+void bleManager_init(void);
+void bleManager_send_meta(MetaData *meta_data);
+uint8_t bleManager_conn_status(void);
+uint8_t bleManager_get_command(void);
+bool bleManager_adv_status(void);
+void bleManager_adv_begin(void);
+uint32_t bleManager_sendSweep(MetaData * meta, uint32_t * freq, uint16_t * real, uint16_t * imag, uint32_t num_sent);
 
+// Helper Functions
+static PackageInfo pack_sweep_data(uint16_t start_freq, MetaData *meta_data, uint32_t *freq, uint16_t *real, uint16_t *imag);
+static void send_package_ble(uint8_t *package, uint16_t package_size);

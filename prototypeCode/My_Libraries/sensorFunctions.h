@@ -22,9 +22,19 @@
 #include "usbManager.h"
 #include "gpioteManager.h"
 #include "rak.h"
-#include "ble_sweep.h"
+#include "bleManager.h"
 
 #include "mem_manager.h"
+
+#ifdef TESTING
+#include "testFunctions.h"
+#endif
+
+// FreeRTOS includes
+#include "FreeRTOS.h"
+#include "task.h"
+#include "timers.h"
+#include "nrf_sdh_freertos.h"
 
 #ifdef DEBUG_FUNCTIONS
 #include "nrf_log.h"

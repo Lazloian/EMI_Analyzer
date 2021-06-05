@@ -333,12 +333,16 @@ static void init_usb(void)
 {
   ret_code_t ret;
   static const app_usbd_config_t usbd_config = {
+//#ifdef FREERTOS
+//		.ev_isr_handler = usb_new_event_isr_handler,
+//#endif
     .ev_state_proc = usbd_user_ev_handler
   };
 
+	// if softdevice is already present then low freq clock already running
+#ifndef SOFTDEVICE_PRESENT
 	// init the low frequency clock
   ret = nrf_drv_clock_init();
-  APP_ERROR_CHECK(ret);
 
   nrf_drv_clock_lfclk_request(NULL);
 
@@ -349,6 +353,7 @@ static void init_usb(void)
 
   ret = app_timer_init();
   APP_ERROR_CHECK(ret);
+#endif
 
   app_usbd_serial_num_generate();
 

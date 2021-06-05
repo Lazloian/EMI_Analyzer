@@ -9,14 +9,15 @@
  
 #include "sensorTasks.h"
 
-static TaskHandle_t inputTask_handle;
-static TaskHandle_t sweepTask_handle;
-static TaskHandle_t blinkTask_handle;
-static TaskHandle_t usbTask_handle;
-static TaskHandle_t BLETask_handle;
-static TaskHandle_t advTask_handle;
+static TaskHandle_t inputTask_handle = NULL;
+static TaskHandle_t sweepTask_handle = NULL;
+static TaskHandle_t blinkTask_handle = NULL;
+static TaskHandle_t usbTask_handle = NULL;
+static TaskHandle_t BLETask_handle = NULL;
 
-static bool bleReady = false; // is set to true when the BLE task is run
+static bool bleReady = false;  	// is set to true when the BLE task is run
+static bool init_done = false; // set to true when init is done
+static bool unsent_sweeps = false; // is true when there are unsent sweeps over BLE
 
 // Task for detecting input. Resumes and suspends tasks depending on the button pressed
 void sensorTasks_input(void * pvParameter)
@@ -27,7 +28,7 @@ void sensorTasks_input(void * pvParameter)
 	
 	for (;;)
 	{
-		/* No checking buttong presses on the RAK
+    /*
 		// check if a button has been pressed
 		if (gpioteManager_getEvent(&button))
 		{
@@ -62,7 +63,7 @@ void sensorTasks_input(void * pvParameter)
         vTaskSuspend(blinkTask_handle);
 			}
 		}
-		*/
+    */
 		
 		// delay the task
 		vTaskDelay(MS_TO_TICK(INPUT_PERIOD));
@@ -72,25 +73,28 @@ void sensorTasks_input(void * pvParameter)
 // Task for conducting sweeps at a certain time
 void sensorTasks_sweep(void * pvParameter)
 {
-	TickType_t lastWakeTime; 								 // keeps track of the time the task woke up
+	TickType_t lastWakeTime;	// keeps track of the time the task woke up
+	Config config = {0};		 // saves config data
 	
-	Config config = {0};	// saves config data
-
-  // Delay the task until BLE is ready
+	// wait until init is finished
 	while (!bleReady)
 	{
-		vTaskDelay(MS_TO_TICK(500));
+		vTaskDelay(SEC_TO_TICK(1));
 	}
 	
-	// init flash (trying it here)
-	flashManager_init();
+	// init peripherals
+  init_peripherals();
 	
+	init_done = true;
+
 	// set the default sweep
 	flashManager_checkConfig(&config);
 	waitFDS();
   sensorFunctions_set_default(&config.sweep);
 	flashManager_updateConfig(&config);
 	waitFDS();
+
+  if (config.num_sent < config.num_sweeps) unsent_sweeps = true;
 	
 	// check if garbage collection must be run
 	if (config.num_deleted >= FM_MAX_DELETE)
@@ -103,9 +107,6 @@ void sensorTasks_sweep(void * pvParameter)
 		}
 	}
 	
-	// turn off LED to indicate flash init success
-	gpioteManager_writePin(RAK_LED_1, 0);
-	
 	for (;;)
 	{
 #ifdef DEBUG_TASKS
@@ -115,11 +116,11 @@ void sensorTasks_sweep(void * pvParameter)
 		// get the current tick count
 		lastWakeTime = xTaskGetTickCount();
 		
+		// make sure nothing is happending on FDS
+		waitFDS();
+		
 		// turn on sweep LED
 		gpioteManager_writePin(LED_SWEEP, 2);
-		
-		// this protects against overflowing the FDS queue
-		waitFDS();
 		
 		// get the sweep and numSaved from flash
 		if (flashManager_checkConfig(&config))
@@ -129,17 +130,27 @@ void sensorTasks_sweep(void * pvParameter)
 			
 #ifdef TESTING
 			// FOR TESTING WITHOUT AD5933
-			testFunctions_saveDummy(&config, true);
-			waitFDS();
-			config.num_sweeps++;
-			flashManager_updateConfig(&config);
+			if (testFunctions_saveDummy(&config, false))
+			{
+				waitFDS();
+				config.num_sweeps++;
+				flashManager_updateConfig(&config);
+				waitFDS();
+
+        unsent_sweeps = true;
+			}
 #else
 			// save the sweep with no usb update
-			sensorFunctions_saveSweep(&config, false);
-			waitFDS();
-			// update the number of saved sweeps
-			config.num_sweeps += 1;
-			flashManager_updateConfig(&config);
+			if (sensorFunctions_saveSweep(&config, false))
+			{
+        waitFDS();
+				// update the number of saved sweeps
+				config.num_sweeps += 1;
+				flashManager_updateConfig(&config);
+				waitFDS();
+
+        unsent_sweeps = true;
+			}
 #endif
 		}
 		// turn off sweep LED
@@ -155,15 +166,15 @@ void sensorTasks_sweep(void * pvParameter)
 		// This time must be accounted for when determining the time to the next sweep
 		vTaskDelayUntil(&lastWakeTime, SEC_TO_TICK(SWEEP_PERIOD));
 	}
-	
 }
 
 // Task for sending sweep data over BLE
 void sensorTasks_BLE(void * pvParameter)
 {
 	Config config; // config to store sensor config
-  uint16_t delay = SEC_TO_TICK(BLE_PERIOD); // delay of the BLE task
-  bool sending = false; // keeps track of a current ble transaction
+  bool success = false; // keeps track of the status of the current sweep send
+  uint8_t command = 0; // to store the incoming BLE command
+  uint32_t sent = 0;  // stores the number of data points sent
 
   // pointers to store data to send
   uint32_t * freq;
@@ -171,129 +182,175 @@ void sensorTasks_BLE(void * pvParameter)
   uint16_t * imag;
   MetaData meta;
 	
-	// Delay the task to check usb
-	vTaskDelay(SEC_TO_TICK(START_DELAY));
+	// wait till init is done
+	while (!init_done)
+	{
+		vTaskDelay(MS_TO_TICK(500));
+	}
+	
+	// check the config for a device ID
+	waitFDS();
+	flashManager_checkConfig(&config);
+	if (config.device_id == 0)
+	{
+		uint8_t bytes_avail = 0; // buffer to store the available random bytes
+		
+		// check if there are enough random bytes. If not, wait for them
+		sd_rand_application_bytes_available_get(&bytes_avail);
+		while (bytes_avail < sizeof(config.device_id))
+		{
+			vTaskDelay(500);
+			sd_rand_application_bytes_available_get(&bytes_avail);
+		}
+		// assign random device ID and save to config
+		config.device_id = sd_rand_application_vector_get((uint8_t *) &config.device_id, sizeof(config.device_id));
+		flashManager_updateConfig(&config);
+		waitFDS();
+		
+#ifdef DEBUG_TASKS
+		  NRF_LOG_INFO("TASKS: BLE Device ID set to %d, avail %d", config.device_id, bytes_avail);
+			NRF_LOG_FLUSH();
+#endif
+	}
 	
 	for (;;)
 	{
-		// check if BLE connection is active
-    if (ble_check_connection() == BLE_CON_ALIVE)
+		// if the BLE connection is alive, check if there are sweeps to send
+    if (bleManager_conn_status() == BLE_CON_ALIVE)
     {
-      if (!sending)
-      {
-        // read the config
-        flashManager_checkConfig(&config);
-        
-        // check if the number of sweeps in flash is equal to the number of sweeps sent over BLE
-        if (config.num_sent < config.num_sweeps)
-        {
 #ifdef DEBUG_TASKS
-					NRF_LOG_INFO("Tasks: Sending Sweep Over BLE");
-					NRF_LOG_FLUSH();
+			NRF_LOG_INFO("TASKS: BLE Connected");
+			NRF_LOG_FLUSH();
 #endif
-          // allocate memory, get the next unsent sweep, and stage it
-          freq = nrf_malloc(MAX_FREQ_SIZE);
-          real = nrf_malloc(MAX_IMP_SIZE);
-          imag = nrf_malloc(MAX_IMP_SIZE);
+			
+			// make sure nothing is happening on FDS
+			waitFDS();
+			
+      // load config to check for sweep to send
+      flashManager_checkConfig(&config);
+
+      // if there is a sweep to send then send it over BLE
+      if (config.num_sent < config.num_sweeps)
+      {
+        // allocate memory and get sweep
+        freq = nrf_malloc(MAX_FREQ_SIZE);
+        real = nrf_malloc(MAX_IMP_SIZE);
+        imag = nrf_malloc(MAX_IMP_SIZE);
+      
+        flashManager_getSweep(freq, real, imag, &meta, config.num_sent + 1);
+
+        // set sent to 0 and success to false
+        sent = 0;
+        success = false;
 				
-          flashManager_getSweep(freq, real, imag, &meta, config.num_sent + 1);
-					
-          ble_stage_sweep(freq, real, imag, &meta);
-
-          // start data transfer
-          ble_command_handler();
-
-          delay = MS_TO_TICK(150);
-          sending = true;
-        }
-      }
-      else
-      {
-        // check connection and run the command handler
-        if (ble_command_handler() == BLE_TRANSFER_COMPLETE)
-        {
-          // unstage sweep, free memory, and set sending to false
-          ble_unstage_sweep();
-          
-          nrf_free(freq);
-          nrf_free(real);
-          nrf_free(imag);
-
-          sending = false;
-          delay = SEC_TO_TICK(BLE_PERIOD);
-
-          // update the config
-          config.num_sent++;
-          flashManager_updateConfig(&config);
-					waitFDS();
-#ifdef DEBUG_BLE
-          NRF_LOG_INFO("TASKS: BLE transfer complete");
-          NRF_LOG_FLUSH();
+#ifdef DEBUG_TASKS
+				NRF_LOG_INFO("TASKS: BLE transfer started");
+				NRF_LOG_FLUSH();
 #endif
-        } 
-      }
-		}
-    else
-    {
-      if (sending)
-      {
-        // unstage sweep, free memory, and set sending to false
-        ble_unstage_sweep();
-        
+				
+        // while connection if alive run this task with a short delay
+        while (bleManager_conn_status() == BLE_CON_ALIVE)
+        {
+          // check for valid command
+          switch (bleManager_get_command())
+          {
+            // do nothing if command is NULL
+            case NULL:
+              break;
+            // command '0' requests metadata for the sweep
+            case 48:
+              bleManager_send_meta(&meta);
+              break;
+            // command '1' is a request for sweep data
+            case 49:
+              sent = bleManager_sendSweep(&meta, freq, real, imag, sent);
+              // if sendSweep returns 0 then the whole sweep has been sent
+              if (sent == 0) success = true;
+              break;
+						// command '2' is a request to delete all sweeps on flash
+						case 50:
+							delete_sweeps(&config, false);
+							break;
+          }
+          vTaskDelay(MS_TO_TICK(200));
+        }
+
+        // free the memory
         nrf_free(freq);
         nrf_free(real);
         nrf_free(imag);
 
-        sending = false;
-        delay = SEC_TO_TICK(BLE_PERIOD);
+        // check if BLE transfer successful
+        if (success)
+        {
+          // udpate the config
+          config.num_sent++;
+          flashManager_updateConfig(&config);
+
+					waitFDS();
+
+          if (config.num_sent == config.num_sweeps) unsent_sweeps = false;
 #ifdef DEBUG_BLE
-        NRF_LOG_INFO("TASKS: BLE transfer failed");
-        NRF_LOG_FLUSH();
+          NRF_LOG_INFO("TASKS: BLE transfer complete");
+          NRF_LOG_FLUSH();
 #endif
+        }
+        else
+        {
+#ifdef DEBUG_BLE
+          NRF_LOG_INFO("TASKS: BLE transfer failed");
+          NRF_LOG_FLUSH();
+#endif
+        }
       }
     }
-		vTaskDelay(delay);
+		vTaskDelay(SEC_TO_TICK(BLE_PERIOD));
 	}
 }
 
 // Task to blink the LED to indicate that the device is running
+// Every time the LED blinks it also advertises over BLE
 void sensorTasks_blink(void * pvParameter)
 {
-  // Delay the task to check usb
-	vTaskDelay(SEC_TO_TICK(START_DELAY));
+  uint16_t counter = 0; // keeps to track of when the advertise
+  Config config;
+	
+	while (!init_done)
+	{
+		vTaskDelay(MS_TO_TICK(500));
+	}
+	
+	// init finished, turn LED 1 off
+	gpioteManager_writePin(LED_1, 2);
 
 	for (;;)
 	{
 #ifdef DEBUG_TASKS
-				NRF_LOG_INFO("TASKS: Blink");
-				NRF_LOG_FLUSH();
+		NRF_LOG_INFO("TASKS: Blink at %d", xTaskGetTickCount());
+		NRF_LOG_FLUSH();
 #endif
 		// blink the rtc led
 		gpioteManager_writePin(LED_BLINK, 2);
 		vTaskDelay(MS_TO_TICK(100));
 		gpioteManager_writePin(LED_BLINK, 2);
 		
+		// check if enough time has passed to advertise and that there is no current BLE connection and (most importantly) that there are new sweeps to send
+		if (unsent_sweeps && bleManager_conn_status() == BLE_CON_DEAD && (counter++ * BLINK_PERIOD) >= ADV_PERIOD)
+		{
+      // advertise and set counter to 0
+			bleManager_adv_begin();
+      counter = 0;
+
+      // blink again
+			vTaskDelay(MS_TO_TICK(100));
+      gpioteManager_writePin(LED_BLINK, 2);
+      vTaskDelay(MS_TO_TICK(100));
+      gpioteManager_writePin(LED_BLINK, 2);
+		}
+		
 		// wait
 		vTaskDelay(SEC_TO_TICK(BLINK_PERIOD));
 	}
-}
-
-// This task turns on BLE advertising at a set time interval
-void sensorTasks_adv(void * pvParameter)
-{
-  // nothing needs to be done before the task enters its loop
-  
-  for (;;)
-  {
-    // if advertising is not running, enable it
-    if (!ble_is_advertising())
-    {
-      ble_advertise_begin();
-    }
-
-    // delay the task
-    vTaskDelay(SEC_TO_TICK(ADV_PERIOD));
-  }
 }
 
 void sensorTasks_usb(void *pvParameter)
@@ -302,14 +359,20 @@ void sensorTasks_usb(void *pvParameter)
 	uint32_t pointer = 0; // the number of the sweep to be sent next
 	uint8_t command[1];  // the command from usb
 	
+	// wait for BLE to be ready
+	while (!bleReady)
+	{
+		vTaskDelay(MS_TO_TICK(500));
+	}
+	
+	// init usb
+	usbManager_init();
+	
 	for (;;)
 	{
 		// check if a usb device is plugged in
 		while (usbManager_checkUSB())
 		{
-			// suspend the sweep task
-			vTaskSuspend(sweepTask_handle);
-			
 			// check if usb data is available, if it is get the first command
 			if (usbManager_readReady() && usbManager_getByte(command))
 			{
@@ -330,7 +393,13 @@ void sensorTasks_usb(void *pvParameter)
 				{
 #ifdef TESTING
 					// FOR TESTING WITHOUT AD5933
-					testFunctions_saveDummy(&config, true);
+					if (testFunctions_saveDummy(&config, true))
+					{
+						waitFDS();
+						config.num_sweeps++;
+						flashManager_updateConfig(&config);
+					}
+					
 #else
 					// this command was sent by usb, so usb in the function call is true
 					sensorFunctions_saveSweep(&config, true);
@@ -355,16 +424,17 @@ void sensorTasks_usb(void *pvParameter)
 				}
 				else if (command[0] == 5)
 				{
-					sensorFunctions_deleteSweeps(&config, true);
+					// this no longer works with softdevice, must do manually
+					//sensorFunctions_deleteSweeps(&config, true);
+					
+					delete_sweeps(&config, true);
 				}
 			}
+			waitFDS();
 		}
 		
 		// delay the task
 		vTaskDelay(MS_TO_TICK(USB_PERIOD));
-		
-		// resume the sweep task
-		vTaskResume(sweepTask_handle);
 	}
 }
 
@@ -395,18 +465,15 @@ bool sensorTasks_init(void)
 	xret = xTaskCreate(sensorTasks_sweep, "sweepTask", configMINIMAL_STACK_SIZE + 340, NULL, 3, &sweepTask_handle);
   if (xret != pdPASS) return false;
 
-	xret = xTaskCreate(sensorTasks_blink, "blinkTask", configMINIMAL_STACK_SIZE + 300, NULL, 1, &blinkTask_handle);
+	xret = xTaskCreate(sensorTasks_blink, "blinkTask", configMINIMAL_STACK_SIZE + 140, NULL, 1, &blinkTask_handle);
   if (xret != pdPASS) return false;
 	
-	//xret = xTaskCreate(sensorTasks_usb, "usbTask", configMINIMAL_STACK_SIZE + 640, NULL, 2, &usbTask_handle);
-  //if (xret != pdPASS) return false;
+	xret = xTaskCreate(sensorTasks_usb, "usbTask", configMINIMAL_STACK_SIZE + 240, NULL, 2, &usbTask_handle);
+  if (xret != pdPASS) return false;
 	
 	nrf_sdh_freertos_init(readyBLE, NULL);
 	
 	xret = xTaskCreate(sensorTasks_BLE, "BLETask", configMINIMAL_STACK_SIZE + 340, NULL, 2, &BLETask_handle);
-  if (xret != pdPASS) return false;
-
-	xret = xTaskCreate(sensorTasks_adv, "advTask", configMINIMAL_STACK_SIZE, NULL, 1, &advTask_handle);
   if (xret != pdPASS) return false;
 
   // start the sceduler
@@ -416,16 +483,94 @@ bool sensorTasks_init(void)
   return false;
 }
 
-// --- Helper Function ---
-static void waitFDS(void)
+// --- Helper Functions ---
+// inits all the peripherals that must init after BLE
+static void init_peripherals(void)
 {
-	while (!flashManager_checkComplete()) vTaskDelay(MS_TO_TICK(250));
+	// Delay until BLE is ready
+	while (!bleReady)
+	{
+		vTaskDelay(MS_TO_TICK(500));
+	}
+	
+	// init flash
+	flashManager_init();
+	
+	// wait till flash init is done
+	waitFDS();
 	
 	return;
 }
-
+// checks if FDS is done processing commands and waits if it isn't
+static void waitFDS(void)
+{
+	while (!flashManager_checkComplete()) vTaskDelay(MS_TO_TICK(500));
+	
+	return;
+}
+// function that the BLE task calls before executing. This lets BLE init before other tasks start
 static void readyBLE(void * parameter)
 {
 	bleReady = true;
 	return;
 }
+
+// deletes all sweeps on flash
+static bool delete_sweeps(Config * config, bool usb)
+{
+	bool ret = true; // keeps track of flashManager status
+	uint8_t queue = 0; // keeps track of the queued commands
+	
+	// make sure nothing is being processed in FDS
+	waitFDS();
+	
+	// delete files and make sure the queue does not overflow
+	while (config->num_sweeps > 0 && ret)
+	{
+		while (queue < FDS_OP_QUEUE_SIZE && config->num_sweeps > 0 && ret)
+		{
+			ret = flashManager_deleteSweep(config->num_sweeps--);
+			config->num_deleted++;
+			queue++;
+		}
+		waitFDS();
+		queue = 0;
+	}
+	// update config if success
+	if (ret)
+	{
+		flashManager_updateConfig(config);
+	}
+	
+	if (usb)
+	{
+		uint8_t buff[1];
+		if (ret) 
+		{
+			buff[0] = 5;
+		}
+		else
+		{
+			buff[0] = 6;
+		}
+		usbManager_writeBytes(buff, 1);
+	}
+	
+	// all sweeps just got deleted so run GC
+	if (ret) flashManager_collectGarbage();
+	waitFDS();
+	
+	return ret;
+}
+
+// overflow hook for freertos. If enabled, it will display the task that overflowed to the log
+#if (configCHECK_FOR_STACK_OVERFLOW == 1 || configCHECK_FOR_STACK_OVERFLOW == 2)
+void vApplicationStackOverflowHook( TaskHandle_t xTask, signed char *pcTaskName )
+{
+#ifdef DEBUG_TASKS
+	NRF_LOG_INFO("TASKS: %s stack overflow", pcTaskName);
+	NRF_LOG_FLUSH();
+#endif
+	return;
+}
+#endif

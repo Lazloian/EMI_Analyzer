@@ -41,7 +41,8 @@
 #define MAX_FREQ_SIZE     2048
 #define MAX_IMP_SIZE      1024
 
-#define FM_MAX_DELETE				24 // maximum number of files to delete before garbage collection
+#define FM_MAX_DELETE			24 	 // maximum number of files to delete before garbage collection
+#define FM_MAX_FILES			100	// the maximum number of files in the file system (this ensures that we do not fill up flash)
 
 // User Functions
 bool flashManager_init(void);

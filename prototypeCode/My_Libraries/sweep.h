@@ -49,8 +49,9 @@ typedef struct sweepParams
 typedef struct configFile
 {
   uint32_t num_sweeps;   // the number of sweeps saved to flash
-  uint16_t num_deleted;  // the number of sweeps that have been deleted
+  uint16_t num_deleted; // the number of sweeps that have been deleted
   uint16_t num_sent;   // the number of sweeps that have been sent over BLE
+	uint16_t device_id; // the random id assigned to the device
 
   Sweep sweep;       // saved sweep paramenters
 } Config;

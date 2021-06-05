@@ -84,9 +84,17 @@
 	uint32_t * freq = nrf_malloc(MAX_FREQ_SIZE);
 	uint16_t * real = nrf_malloc(MAX_IMP_SIZE);
 	uint16_t * imag = nrf_malloc(MAX_IMP_SIZE);
+	 
+#ifdef TESTING
+	testFunctions_dummyData(freq, sizeof(uint32_t) * sweep->metadata.numPoints);
+	testFunctions_dummyData(real, sizeof(uint16_t) * sweep->metadata.numPoints);
+	res = testFunctions_dummyData(imag, sizeof(uint16_t) * sweep->metadata.numPoints);
+#else
+	res = AD5933_Sweep(sweep, freq, real, imag);
+#endif
 	
 	// execute the sweep
-	if (AD5933_Sweep(sweep, freq, real, imag))
+	if (res)
 	{
 #ifdef DEBUG_FUNCTIONS
 		NRF_LOG_INFO("FUNCTIONS: Sending Sweep");
@@ -103,6 +111,7 @@
 #ifdef DEBUG_FUNCTIONS
 			NRF_LOG_INFO("FUNCTIONS: Sweep Send Fail");
 #endif
+			res = false;
 		}
 #ifdef DEBUG_FUNCTIONS
 		NRF_LOG_FLUSH();
@@ -272,7 +281,7 @@ bool sensorFunctions_init(void)
 #endif
 	
 	// init BLE (must be before FDS init or else FDS init will fail)
-	ble_sweep_init();
+	bleManager_init();
 
   // init twi
   if (!twiManager_init()) return false;
