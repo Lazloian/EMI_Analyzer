@@ -169,7 +169,7 @@ bool flashManager_updateConfig(Config * config)
 	NRF_LOG_INFO("FLASH: Saved sweeps: %d", config->num_sweeps);
   NRF_LOG_INFO("FLASH: Deleted sweeps: %d", config->num_deleted);
   NRF_LOG_INFO("FLASH: Sent sweeps: %d", config->num_sent);
-	NRF_LOG_INFO("FLASH: Device ID: %d", config->device_id);
+	NRF_LOG_INFO("FLASH: Device ID: %c%c%c", config->device_id[0], config->device_id[1], config->device_id[2]);
   NRF_LOG_FLUSH();
 #endif
 

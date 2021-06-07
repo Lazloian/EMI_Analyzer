@@ -175,6 +175,7 @@ void sensorTasks_BLE(void * pvParameter)
   bool success = false; // keeps track of the status of the current sweep send
   uint8_t command = 0; // to store the incoming BLE command
   uint32_t sent = 0;  // stores the number of data points sent
+	unsigned char device_name[7]; // device name
 
   // pointers to store data to send
   uint32_t * freq;
@@ -191,7 +192,8 @@ void sensorTasks_BLE(void * pvParameter)
 	// check the config for a device ID
 	waitFDS();
 	flashManager_checkConfig(&config);
-	if (config.device_id == 0)
+
+	if (config.device_id[0] == 0)
 	{
 		uint8_t bytes_avail = 0; // buffer to store the available random bytes
 		
@@ -202,16 +204,26 @@ void sensorTasks_BLE(void * pvParameter)
 			vTaskDelay(500);
 			sd_rand_application_bytes_available_get(&bytes_avail);
 		}
-		// assign random device ID and save to config
-		config.device_id = sd_rand_application_vector_get((uint8_t *) &config.device_id, sizeof(config.device_id));
-		flashManager_updateConfig(&config);
-		waitFDS();
+		// assign random device ID and adjust values
+		sd_rand_application_vector_get(config.device_id, sizeof(config.device_id));
 		
-#ifdef DEBUG_TASKS
-		  NRF_LOG_INFO("TASKS: BLE Device ID set to %d, avail %d", config.device_id, bytes_avail);
-			NRF_LOG_FLUSH();
-#endif
+		for (int i = 0; i < sizeof(config.device_id); i++)
+		{
+			config.device_id[i] = (int) ((((float) config.device_id[i]) / UINT8_MAX) * (90 - 65)) + 65;
+		}
 	}
+	
+	sprintf((char *) device_name, "EMI_%c%c%c", config.device_id[0], config.device_id[1], config.device_id[2]);
+	
+	bleManager_changeName(device_name, sizeof(device_name));
+	
+	flashManager_updateConfig(&config);
+	waitFDS();
+	
+#ifdef DEBUG_TASKS
+	NRF_LOG_INFO("TASKS: BLE Device ID set to %c%c%c", config.device_id[0], config.device_id[1], config.device_id[2]);
+	NRF_LOG_FLUSH();
+#endif
 	
 	for (;;)
 	{
@@ -302,6 +314,11 @@ void sensorTasks_BLE(void * pvParameter)
           NRF_LOG_FLUSH();
 #endif
         }
+				// if there are still sweeps to send, advertise
+				if (unsent_sweeps && !bleManager_adv_status())
+				{
+					bleManager_adv_begin();
+				}
       }
     }
 		vTaskDelay(SEC_TO_TICK(BLE_PERIOD));
@@ -404,6 +421,7 @@ void sensorTasks_usb(void *pvParameter)
 					// this command was sent by usb, so usb in the function call is true
 					sensorFunctions_saveSweep(&config, true);
 #endif
+					unsent_sweeps = true;
 				}
 				// execute a sweep and immedietly send it over usb, do not save to flash
 				else if (command[0] == 3)

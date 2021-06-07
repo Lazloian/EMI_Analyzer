@@ -51,10 +51,8 @@
 #define INPUT_PERIOD 250 	  // period between input checks in milliseconds
 #define BLINK_PERIOD 10    // period between RTC_LED blinks in seconds
 #define USB_PERIOD   500  // period between usb checks in millisenconds
-#define BLE_PERIOD	 5	 // period between BLE task execution in seconds
-#define ADV_PERIOD   40 // period between advertisements
-
-#define START_DELAY	 8 // delay in seconds for sweeps to start after power on. At least a second is needed for usb
+#define BLE_PERIOD	 1	 // period between BLE task execution in seconds
+#define ADV_PERIOD   30 // period between advertisements
 
 // Tasks
 void sensorTasks_input(void * pvParameter);

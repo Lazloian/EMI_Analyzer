@@ -76,6 +76,7 @@ uint8_t bleManager_conn_status(void);
 uint8_t bleManager_get_command(void);
 bool bleManager_adv_status(void);
 void bleManager_adv_begin(void);
+void bleManager_changeName(unsigned char * name, uint8_t length);
 uint32_t bleManager_sendSweep(MetaData * meta, uint32_t * freq, uint16_t * real, uint16_t * imag, uint32_t num_sent);
 
 // Helper Functions

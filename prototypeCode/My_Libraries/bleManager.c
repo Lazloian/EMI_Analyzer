@@ -12,6 +12,7 @@ NRF_BLE_GATT_DEF(m_gatt);                                                       
 NRF_BLE_QWR_DEF(m_qwr);                                                             /**< Context for the Queued Write module.*/
 BLE_ADVERTISING_DEF(m_advertising);                                                 /**< Advertising module instance. */
 
+static ble_advertising_init_t adv_init;																							/**< Advertising Settings. */
 static uint16_t   m_conn_handle          = BLE_CONN_HANDLE_INVALID;                 /**< Handle of the current connection. */
 static uint16_t   m_ble_nus_max_data_len = BLE_GATT_ATT_MTU_DEFAULT - 3;            /**< Maximum length of data (in bytes) that can be transmitted to the peer by the Nordic UART service module. */
 static ble_uuid_t m_adv_uuids[]          =                                          /**< Universally unique service identifier. */
@@ -139,52 +140,17 @@ void bleManager_send_meta(MetaData *meta_data)
   send_package_ble(buff, (uint16_t)sizeof(buff));
 }
 
-/*
-   This function will handle data transfer. Need to call this function periodically if the connection is alive.
-   Need to do,  get pointer of metadata, real, imag and freq (separated function). Will impliment asap.
-uint8_t ble_command_handler(void)
+void bleManager_changeName(unsigned char * name, uint8_t length)
 {
-  uint8_t transfer_progress = BLE_TRANSFER_IN_PROGRESS;
-  if (ble_check_connection() == BLE_CON_ALIVE && ble_check_command())
-  {
-    switch (ble_command)
-    {
-      case 48:
-        bleManager_send_meta(meta_data_ptr);
-        package_sent = 0;
-        transfer_progress = BLE_TRANSFER_IN_PROGRESS;
-        break;
-
-      case 49:
-        package_info = pack_sweep_data(package_sent, meta_data_ptr, freq_ptr, real_ptr, imag_ptr);
-        send_package_ble(package_info.ptr, package_info.package_size);
-        package_sent = package_info.stop_freq;
-
-        package_info = pack_sweep_data(package_sent, meta_data_ptr, freq_ptr, real_ptr, imag_ptr);
-        send_package_ble(package_info.ptr, package_info.package_size);
-        package_sent = package_info.stop_freq;
-
-        package_info = pack_sweep_data(package_sent, meta_data_ptr, freq_ptr, real_ptr, imag_ptr);
-        send_package_ble(package_info.ptr, package_info.package_size);
-        package_sent = package_info.stop_freq;
-
-        NRF_LOG_INFO("Sent frequency upto #%d", package_sent);
-
-        if (package_sent < meta_data_ptr->numPoints)
-        {
-          transfer_progress = BLE_TRANSFER_IN_PROGRESS;
-        }
-        else
-        {
-          transfer_progress = BLE_TRANSFER_COMPLETE;
-        }
-        break;
-    }
-  }
-
-  return transfer_progress;
-
-} */
+	ble_gap_conn_sec_mode_t sec; // security mode of the ble connection
+	
+	BLE_GAP_CONN_SEC_MODE_SET_OPEN(&sec);
+	sd_ble_gap_device_name_set(&sec, name, length);
+	
+	ble_advertising_advdata_update(&m_advertising, &adv_init.advdata, &adv_init.srdata);
+	
+	return;
+}
 
 static PackageInfo pack_sweep_data(uint16_t start_freq, MetaData *meta_data, uint32_t *freq, uint16_t *real, uint16_t *imag)
 {
@@ -590,31 +556,27 @@ static void services_init(void)
 static void advertising_init(void)
 {
   uint32_t               err_code;
-  ble_advertising_init_t init;
 
-  memset(&init, 0, sizeof(init));
+  memset(&adv_init, 0, sizeof(adv_init));
 
-  init.advdata.name_type          = BLE_ADVDATA_FULL_NAME;
-  init.advdata.include_appearance = false;
-  init.advdata.flags              = BLE_GAP_ADV_FLAGS_LE_ONLY_LIMITED_DISC_MODE;
+  adv_init.advdata.name_type          = BLE_ADVDATA_FULL_NAME;
+  adv_init.advdata.include_appearance = false;
+  adv_init.advdata.flags              = BLE_GAP_ADV_FLAGS_LE_ONLY_LIMITED_DISC_MODE;
 
-  init.srdata.uuids_complete.uuid_cnt = sizeof(m_adv_uuids) / sizeof(m_adv_uuids[0]);
-  init.srdata.uuids_complete.p_uuids  = m_adv_uuids;
+  adv_init.srdata.uuids_complete.uuid_cnt = sizeof(m_adv_uuids) / sizeof(m_adv_uuids[0]);
+  adv_init.srdata.uuids_complete.p_uuids  = m_adv_uuids;
 
-  init.config.ble_adv_fast_enabled  = true;
-  init.config.ble_adv_fast_interval = APP_ADV_INTERVAL;
-  init.config.ble_adv_fast_timeout  = APP_ADV_DURATION;
-  init.evt_handler = on_adv_evt;
-  init.config.ble_adv_on_disconnect_disabled = true;
+  adv_init.config.ble_adv_fast_enabled  = true;
+  adv_init.config.ble_adv_fast_interval = APP_ADV_INTERVAL;
+  adv_init.config.ble_adv_fast_timeout  = APP_ADV_DURATION;
+  adv_init.evt_handler = on_adv_evt;
+  adv_init.config.ble_adv_on_disconnect_disabled = true;
 
-  err_code = ble_advertising_init(&m_advertising, &init);
+  err_code = ble_advertising_init(&m_advertising, &adv_init);
   APP_ERROR_CHECK(err_code);
 
   ble_advertising_conn_cfg_tag_set(&m_advertising, APP_BLE_CONN_CFG_TAG);
 }
-
-
-
 
 /**@brief Function for initializing the Connection Parameters module.
 */
