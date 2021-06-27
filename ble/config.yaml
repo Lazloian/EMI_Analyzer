@@ -1,9 +1,9 @@
-env: 'qa'
+env: 'prod'
 
 upload_uri:
   debug: 'http://10.165.76.237:5000/upload'
   dev: 'http://10.165.76.237:50000/upload'
-  qa: 'http://66.253.158.41:50000/upload'
+  qa: 'http://66.253.158.97:50000/upload'
   prod: 'http://128.46.205.252:50000/upload'
 
 sweep_path: '/srv/sweeps'
