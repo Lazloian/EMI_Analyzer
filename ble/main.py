@@ -20,7 +20,6 @@ def detect_device(scan_duration:int) -> BLEDevice:
     '''
         Scan all devices. Try to detect the proper device. Otherwise, return None.
     '''
-    logger.info('Scanning devices.')
     devices = scan_devices(scan_duration)
     for device in devices:
         if re.match(r'(EMI)', device.name):
@@ -43,7 +42,7 @@ async def connect(device: BLEDevice) -> BleakClient:
         raiseExceptions(asyncio.TimeoutError)
 
     except Exception as e:
-        logger.error(f'Unknown error occured when connecting to {device.name} ({device.address}). {e}')
+        logger.error(f'Unknown error occured when connecting to {device.name} ({device.address}).  Message => {e}')
 
 async def automate(device: BLEDevice):
     '''
@@ -65,7 +64,7 @@ async def automate(device: BLEDevice):
         logger.error('Timeout! Something went wrong.')
 
     except Exception as e:
-        logger.error(f'Unknown error occured when transfering data from {device.name} ({device.address}). {e}')
+        logger.error(f'Unknown error occured when transfering data from {device.name} ({device.address}). Message => {e}')
     
     finally:
         if connection.is_connected:
