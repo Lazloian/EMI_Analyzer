@@ -6,8 +6,7 @@ Description: A script for connecting ble.
 '''
 
 import asyncio
-from bleak import BleakScanner
-from bleak import BleakClient
+from bleak import BleakScanner, BleakClient
 from bleak.backends.device import BLEDevice
 from meta import MetaData
 from nordic import UUID_NORDIC_RX, UUID_NORDIC_TX, save_sweep
@@ -87,7 +86,7 @@ async def scan(time:int=5):
     devices = await BleakScanner.discover(time)
     return devices
 
-def scan_devices(scan_duration:int):
+def scan_devices(scan_duration:int=5):
     '''
         Acticate Bleak scaner coroutine. Return a list of devices back.
     '''
