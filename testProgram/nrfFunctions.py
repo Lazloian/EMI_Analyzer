@@ -46,8 +46,8 @@ def get_sweep(fromFlash=True):
             break
 
         # get real and imaginary data and convert it
-        imp[0] = int.from_bytes(buff[4:6], "big", signed=True)
-        imp[1] = int.from_bytes(buff[6:8], "big", signed=True)
+        imp[0] = int.from_bytes(buff[4:6], "little", signed=True)
+        imp[1] = int.from_bytes(buff[6:8], "little", signed=True)
 
         data.append((freq, imp[0], imp[1]))
 
