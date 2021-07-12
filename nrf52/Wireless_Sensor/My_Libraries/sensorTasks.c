@@ -352,7 +352,7 @@ void sensorTasks_blink(void * pvParameter)
 		gpioteManager_writePin(LED_BLINK, 2);
 		
 		// check if enough time has passed to advertise and that there is no current BLE connection and (most importantly) that there are new sweeps to send
-		if (unsent_sweeps && bleManager_conn_status() == BLE_CON_DEAD && (counter++ * BLINK_PERIOD) >= ADV_PERIOD)
+		if (bleManager_conn_status() == BLE_CON_DEAD && (counter++ * BLINK_PERIOD) >= ADV_PERIOD)
 		{
       // advertise and set counter to 0
 			bleManager_adv_begin();
