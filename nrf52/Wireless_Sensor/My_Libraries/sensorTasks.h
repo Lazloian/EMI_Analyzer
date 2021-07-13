@@ -49,7 +49,7 @@
 
 #define SWEEP_PERIOD 1800    // period between sweeps in seconds
 #define INPUT_PERIOD 250 	  // period between input checks in milliseconds
-#define BLINK_PERIOD 5    // period between RTC_LED blinks in seconds
+#define BLINK_PERIOD 10    // period between RTC_LED blinks in seconds
 #define USB_PERIOD   500  // period between usb checks in millisenconds
 #define BLE_PERIOD	 1	 // period between BLE task execution in seconds
 #define ADV_PERIOD   300// period between advertisements in seconds

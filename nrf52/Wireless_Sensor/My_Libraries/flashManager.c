@@ -91,13 +91,13 @@ bool flashManager_getSweep(uint32_t * freq, int16_t * real, int16_t * imag, Meta
   if (!flashManager_findRecord(&record_desc, sweep_num, SWEEP_REAL)) return false;
 
   // copy the frequency data
-  if (!flashManager_readRecord(&record_desc, real, sizeof(uint16_t) * metadata->numPoints)) return false;
+  if (!flashManager_readRecord(&record_desc, real, sizeof(int16_t) * metadata->numPoints)) return false;
 
 	// find the sweep real impedance data
   if (!flashManager_findRecord(&record_desc, sweep_num, SWEEP_IMAG)) return false;
 
   // copy the frequency data
-  if (!flashManager_readRecord(&record_desc, imag, sizeof(uint16_t) * metadata->numPoints)) return false;
+  if (!flashManager_readRecord(&record_desc, imag, sizeof(int16_t) * metadata->numPoints)) return false;
 	
 #ifdef DEBUG_FLASH
   NRF_LOG_INFO("FLASH: Sweep get success");
@@ -139,10 +139,10 @@ bool flashManager_saveSweep(uint32_t * freq, int16_t * real, int16_t * imag, Met
   if (!flashManager_createRecord(&record_desc, sweep_num, SWEEP_FREQ, freq, metadata->numPoints * sizeof(uint32_t))) return false;
 	
   // save real data
-  if (!flashManager_createRecord(&record_desc, sweep_num, SWEEP_REAL, real, metadata->numPoints * sizeof(uint16_t))) return false;
+  if (!flashManager_createRecord(&record_desc, sweep_num, SWEEP_REAL, real, metadata->numPoints * sizeof(int16_t))) return false;
 
   // save imaginary data
-  if (!flashManager_createRecord(&record_desc, sweep_num, SWEEP_IMAG, imag, metadata->numPoints * sizeof(uint16_t))) return false;
+  if (!flashManager_createRecord(&record_desc, sweep_num, SWEEP_IMAG, imag, metadata->numPoints * sizeof(int16_t))) return false;
 
   // save metadata
   if (!flashManager_createRecord(&record_desc, sweep_num, SWEEP_METADATA, metadata, sizeof(MetaData))) return false;

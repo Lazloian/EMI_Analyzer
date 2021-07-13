@@ -79,7 +79,7 @@ uint8_t bleManager_get_command(void)
 // Returns:
 //  If the end of the sweep is not reached : returns the last data point sent
 //  If the whole sweep has been sent       : returns 0
-uint32_t bleManager_sendSweep(MetaData * meta, uint32_t * freq, uint16_t * real, uint16_t * imag, uint32_t num_sent)
+uint32_t bleManager_sendSweep(MetaData * meta, uint32_t * freq, int16_t * real, int16_t * imag, uint32_t num_sent)
 {
   PackageInfo package_info;
 
@@ -152,7 +152,7 @@ void bleManager_changeName(unsigned char * name, uint8_t length)
 	return;
 }
 
-static PackageInfo pack_sweep_data(uint16_t start_freq, MetaData *meta_data, uint32_t *freq, uint16_t *real, uint16_t *imag)
+static PackageInfo pack_sweep_data(uint16_t start_freq, MetaData *meta_data, uint32_t *freq, int16_t *real, int16_t *imag)
 {
   PackageInfo package_info = {
     .ptr = package,

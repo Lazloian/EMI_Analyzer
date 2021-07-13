@@ -1,4 +1,5 @@
-#include<usbManager.h>
+
+#include "usbManager.h"
 
 // USB acm class instance
 APP_USBD_CDC_ACM_GLOBAL_DEF(m_app_cdc_acm,
@@ -42,10 +43,6 @@ bool usbManager_sendSweep(uint32_t * freq, int16_t * real , int16_t * imag, Meta
   NRF_LOG_INFO("USB: Sending sweep over usb");
   NRF_LOG_FLUSH();
 #endif
-	
-	// let the python script know to start reading
-	uint8_t start[1] = {3};
-	usbManager_writeBytes(start, 1);
 
   do {
 		// wait 10ms, this fixed an invalid data error being reported by usb_write
@@ -75,10 +72,6 @@ bool usbManager_sendSweep(uint32_t * freq, int16_t * real , int16_t * imag, Meta
 	} while (ret && current < metadata->numPoints);
 	// wait once more, this also fixes a usb invalid data issue
 	nrf_delay_ms(10);
-	
-	// send a blank sweep to indicate sweep done
-	uint8_t done[8] = {0};
-	ret = usbManager_writeBytes(done, 8);
 
 #ifdef DEBUG_USB
 	if (ret) 
@@ -195,6 +188,12 @@ bool usbManager_getByte(uint8_t * buff)
   // check if rx_ready
   if (rx_ready)
   {
+		ret_code_t ret = NRF_SUCCESS;
+		// clear all 0s in buffer
+		while (m_rx_buffer[0] == 0 && ret == NRF_SUCCESS)
+		{
+			ret = app_usbd_cdc_acm_read(&m_app_cdc_acm, m_rx_buffer, READ_SIZE);
+		}
     *buff = m_rx_buffer[0];
 		// clear m_rx_buffer
 		m_rx_buffer[0] = 0;
@@ -279,7 +278,7 @@ static void cdc_acm_user_ev_handler(app_usbd_class_inst_t const * p_inst,
       }
     case APP_USBD_CDC_ACM_USER_EVT_PORT_CLOSE:
 		{
-      rx_ready = false;
+      //rx_ready = false;
       break;
 		}
     case APP_USBD_CDC_ACM_USER_EVT_TX_DONE:

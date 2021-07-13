@@ -44,7 +44,7 @@
 #endif
 
 bool sensorFunctions_deleteSweeps(Config * config, bool usb);
-bool sensorFunctions_sendConfig(Config * config);
+bool sensorFunctions_sendNumSweeps(Config * config);
 void sensorFunctions_set_default(Sweep * sweep);
 bool sensorFunctions_sendSweep(uint32_t numSaved);
 bool sensorFunctions_sweepAndSend(Sweep * sweep);

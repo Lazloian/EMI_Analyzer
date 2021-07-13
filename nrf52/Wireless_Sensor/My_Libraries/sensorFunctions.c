@@ -17,7 +17,7 @@
 // Return value:
 //  false if error
 //  true  if success
- bool sensorFunctions_sendConfig(Config * config)
+ bool sensorFunctions_sendNumSweeps(Config * config)
  {
 	// send the number of saved sweeps
 	if (!usbManager_writeBytes(&config->num_sweeps, sizeof(config->num_sweeps))) return false;
@@ -41,10 +41,15 @@
 	uint32_t * freq = nrf_malloc(MAX_FREQ_SIZE);
 	int16_t * real = nrf_malloc(MAX_IMP_SIZE);
 	int16_t * imag = nrf_malloc(MAX_IMP_SIZE);
+	
+	// let the python script know sweep started
+	uint8_t start[1] = {1};
+	usbManager_writeBytes(start, 1);
 		
 	// get the sweep data from flash
 	if (flashManager_getSweep(freq, real, imag, &metadata, sweepNum))
 	{
+		gpioteManager_writePin(LED_2, 2);
 		if (usbManager_sendSweep(freq, real, imag, &metadata))
 		{
 #ifdef DEBUG_FUNCTIONS
@@ -60,7 +65,12 @@
 			NRF_LOG_FLUSH();
 #endif
 		}
+		gpioteManager_writePin(LED_2, 2);
 	}
+	
+	// send a blank sweep to indicate sweep done
+	uint8_t done[8] = {0};
+	usbManager_writeBytes(done, 8);
 	
 	// free memory
 	nrf_free(freq);
@@ -85,6 +95,10 @@
 	int16_t * real = nrf_malloc(MAX_IMP_SIZE);
 	int16_t * imag = nrf_malloc(MAX_IMP_SIZE);
 	 
+	 // turn on LED 1
+	 gpioteManager_writePin(LED_1, 2);
+	 
+	// execute the sweep 
 #ifdef TESTING
 	testFunctions_dummyData(freq, sizeof(uint32_t) * sweep->metadata.numPoints);
 	testFunctions_dummyData(real, sizeof(uint16_t) * sweep->metadata.numPoints);
@@ -92,13 +106,21 @@
 #else
 	res = AD5933_Sweep(sweep, freq, real, imag);
 #endif
-	
-	// execute the sweep
+	 
+	 // turn off LED 1
+	 gpioteManager_writePin(LED_1, 2);
+	 
+	 // let the python script know sweep started
+	uint8_t start[1] = {1};
+	usbManager_writeBytes(start, 1);
+
 	if (res)
 	{
 #ifdef DEBUG_FUNCTIONS
 		NRF_LOG_INFO("FUNCTIONS: Sending Sweep");
 #endif
+		// turn on LED 2
+		gpioteManager_writePin(LED_2, 2);
 		if (usbManager_sendSweep(freq, real, imag, &sweep->metadata))
 		{
 #ifdef DEBUG_FUNCTIONS
@@ -117,6 +139,13 @@
 		NRF_LOG_FLUSH();
 #endif
 	}
+	
+	// send a blank sweep to indicate sweep done
+	uint8_t done[8] = {0};
+	usbManager_writeBytes(done, 8);
+	
+	// turn off LED 2
+	gpioteManager_writePin(LED_2, 2);
 	
 	// free the memory
 	nrf_free(freq);

@@ -179,8 +179,8 @@ void sensorTasks_BLE(void * pvParameter)
 
   // pointers to store data to send
   uint32_t * freq;
-  uint16_t * real;
-  uint16_t * imag;
+  int16_t * real;
+  int16_t * imag;
   MetaData meta;
 	
 	// wait till init is done
@@ -393,61 +393,39 @@ void sensorTasks_usb(void *pvParameter)
 				// update the sweep and numSaved
 				flashManager_checkConfig(&config);
 				
-				// read the config file
-				// send the number of saved sweeps
-				if (command[0] == 1)
+				switch (command[0])
 				{
-					sensorFunctions_sendConfig(&config);
+					// command to send the number of saved sweeps
+					case '1':
+						// send sweep number and update sweep pointer
+						sensorFunctions_sendNumSweeps(&config);
+						pointer = config.num_sweeps;
+						break;
 					
-					// also reset the pointer here
-					pointer = config.num_sweeps;
-				}
-				// execute a sweep and save to flash
-				else if (command[0] == 2)
-				{
-#ifdef TESTING
-					// FOR TESTING WITHOUT AD5933
-					if (testFunctions_saveDummy(&config, true))
-					{
-						waitFDS();
-						config.num_sweeps++;
-						flashManager_updateConfig(&config);
-					}
+					// command to execute and send a sweep (do not save to flash)
+					case '2':
+						sensorFunctions_sweepAndSend(&config.sweep);
+						break;
+						
+					// command to send the next sweep from flash
+					case '3':
+						// if pointer is at file 0, set it at the most recent sweep saved
+						if (pointer == 0) pointer = config.num_sweeps;
+						
+						// send the sweep at pointer
+						sensorFunctions_sendSweep(pointer);
+						
+						// move pointer down
+						pointer--;
+						break;
+						
+					// command to delete all sweeps from memory
+					case '4':
+						delete_sweeps(&config, true);
+						break;
 					
-#else
-					// this command was sent by usb, so usb in the function call is true
-					if (sensorFunctions_saveSweep(&config, true))
-					{
-						waitFDS();
-						config.num_sweeps++;
-						flashManager_updateConfig(&config);
-					}
-#endif
-					unsent_sweeps = true;
-				}
-				// execute a sweep and immedietly send it over usb, do not save to flash
-				else if (command[0] == 3)
-				{
-					sensorFunctions_sweepAndSend(&config.sweep);
-				}
-				// send the pointer sweep over usb
-				else if (command[0] == 4)
-				{
-					// if pointer is at file 0, set it at the most recent sweep saved
-					if (pointer == 0) pointer = config.num_sweeps;
-					
-					// send the sweep at pointer
-					sensorFunctions_sendSweep(pointer);
-					
-					// move pointer down
-					pointer--;
-				}
-				else if (command[0] == 5)
-				{
-					// this no longer works with softdevice, must do manually
-					//sensorFunctions_deleteSweeps(&config, true);
-					
-					delete_sweeps(&config, true);
+					default:
+						break;
 				}
 			}
 			waitFDS();

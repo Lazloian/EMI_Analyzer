@@ -77,8 +77,8 @@ uint8_t bleManager_get_command(void);
 bool bleManager_adv_status(void);
 void bleManager_adv_begin(void);
 void bleManager_changeName(unsigned char * name, uint8_t length);
-uint32_t bleManager_sendSweep(MetaData * meta, uint32_t * freq, uint16_t * real, uint16_t * imag, uint32_t num_sent);
+uint32_t bleManager_sendSweep(MetaData * meta, uint32_t * freq, int16_t * real, int16_t * imag, uint32_t num_sent);
 
 // Helper Functions
-static PackageInfo pack_sweep_data(uint16_t start_freq, MetaData *meta_data, uint32_t *freq, uint16_t *real, uint16_t *imag);
+static PackageInfo pack_sweep_data(uint16_t start_freq, MetaData *meta_data, uint32_t *freq, int16_t *real, int16_t *imag);
 static void send_package_ble(uint8_t *package, uint16_t package_size);
