@@ -128,7 +128,7 @@ def get_sweep(ser):
         imp[0] = int.from_bytes(buff[4:6], "little", signed=True)
         imp[1] = int.from_bytes(buff[6:8], "little", signed=True)
 
-        print(f'Real: {imp[0]} Imag: {imp[1]}')
+#        print(f'Real: {imp[0]} Imag: {imp[1]}')
 
         data.append((freq, imp[0], imp[1]))
 
