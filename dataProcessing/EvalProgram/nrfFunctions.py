@@ -7,6 +7,34 @@
 import usbFunctions as uf
 import time
 
+# sends the command to delete all sweeps on the device
+def delete_sweeps():
+    # open usb connection
+    ser = uf.open_usb()
+    if not ser:
+        return -1
+
+    # send the get num saved command
+    buff = [ord('4')]
+    buff = bytes(buff)
+    ser.write(buff)
+
+    print('Deleting Sweeps on Device ...')
+
+    # wait for sweeps to be delete
+    buff = ser.read(1)
+    ret = int.from_bytes(buff, "little")
+
+    # if device sends 1 then success, if 2 then fail
+    if (ret == 1):
+        print('Device Cleared')
+    else:
+        print('Sweep Deletion Failed')
+    
+    ser.close()
+
+    return
+
 # gets the number of saved sweeps from the device
 def get_num_saved():
     # open usb connection

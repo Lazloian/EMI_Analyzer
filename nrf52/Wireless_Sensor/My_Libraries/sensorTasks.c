@@ -525,6 +525,9 @@ static bool delete_sweeps(Config * config, bool usb)
 	// make sure nothing is being processed in FDS
 	waitFDS();
 	
+	// turn on LED 1 to indicate processing
+	gpioteManager_writePin(LED_1, 2);
+	
 	// delete files and make sure the queue does not overflow
 	while (config->num_sweeps > 0 && ret)
 	{
@@ -543,23 +546,27 @@ static bool delete_sweeps(Config * config, bool usb)
 		flashManager_updateConfig(config);
 	}
 	
+	// all sweeps just got deleted so run GC
+	if (ret) flashManager_collectGarbage();
+	waitFDS();
+	
+	// turn off LED 1
+	gpioteManager_writePin(LED_1, 2);
+	
+	// let script know deletions are complete
 	if (usb)
 	{
 		uint8_t buff[1];
 		if (ret) 
 		{
-			buff[0] = 5;
+			buff[0] = 1;
 		}
 		else
 		{
-			buff[0] = 6;
+			buff[0] = 2;
 		}
 		usbManager_writeBytes(buff, 1);
 	}
-	
-	// all sweeps just got deleted so run GC
-	if (ret) flashManager_collectGarbage();
-	waitFDS();
 	
 	return ret;
 }

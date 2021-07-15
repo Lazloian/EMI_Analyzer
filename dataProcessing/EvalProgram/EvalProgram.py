@@ -54,8 +54,8 @@ while(1):
     elif (cmd in ['save','6']):
         af.save(sweepFrame, gainFrame)
 
-    elif (cmd in ['set','7']):
-        nrf.change_settings()
+    elif (cmd in ['del','7']):
+        nrf.delete_sweeps()
 
     elif (cmd in ['help','8']):
         af.print_commands()

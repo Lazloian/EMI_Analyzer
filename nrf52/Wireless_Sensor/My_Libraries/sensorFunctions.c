@@ -180,7 +180,7 @@
 		{
 			
 #ifdef DEBUG_FUNCTIONS
-			NRF_LOG_INFO("FUNCTIONS: Sweep %d saved", config->num_sweeps);
+			NRF_LOG_INFO("FUNCTIONS: Sweep %d saved", config->num_sweeps + 1);
 			NRF_LOG_FLUSH();
 #endif
 			res = true;
