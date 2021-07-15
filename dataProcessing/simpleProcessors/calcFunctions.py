@@ -28,7 +28,10 @@ def calc_impedance(data, gain):
         i = 1 / (gain[ind][1] * mag)
         p = calc_phase(d[1], d[2])
         p = p - gain[ind][2]
-        imp.append((d[0], i, p))
+        Y = 1 / (i * math.cos(math.radians(p)) + (i * math.sin(math.radians(p))) * 1j)
+        c = Y.real
+        s = Y.imag
+        imp.append((d[0], i, p, c, s))
 
     return imp
 
@@ -37,7 +40,7 @@ def calc_gain_factor(data, calibration):
     gain = []
     for d in data:
         mag = math.sqrt((d[1] ** 2) + (d[2] ** 2))
-        g = (1 / calibration) / mag
+        g = 1 / (calibration * mag)
         ps = calc_phase(d[1], d[2])
         gain.append((d[0], g, ps))
     return gain

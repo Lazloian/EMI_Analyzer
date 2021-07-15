@@ -285,7 +285,7 @@ void sensorFunctions_set_default(Sweep * sweep)
   sweep->delta 							= 100;
   sweep->steps 							= 490;
   sweep->cycles 						= 511;
-  sweep->cyclesMultiplier 	= TIMES4;
+  sweep->cyclesMultiplier 	= NO_MULT;
   sweep->range 							= RANGE1;
   sweep->clockSource 				= INTERN_CLOCK;
   sweep->clockFrequency 		= CLK_FREQ;
