@@ -31,8 +31,8 @@ bool adcManager_sample(void)
 	if (!buffer_set || status == ADCMANAGER_BUSY)
 	{
 #ifdef DEBUG_ADC
-		if (!buffer_set) NRF_LOG_INFO("ADC: Buffer not set, start sample fail");
-		else NRF_LOG_INFO("ADC: Sample already running, start sample fail");
+		if (!buffer_set) {NRF_LOG_INFO("ADC: Buffer not set, start sample fail");}
+		else {NRF_LOG_INFO("ADC: Sample already running, start sample fail");}
 		NRF_LOG_FLUSH();
 #endif
 		return false;
@@ -62,6 +62,39 @@ bool adcManager_sample(void)
 	}
 }
 
+// Executes a single blocking adc sample and places it in the buffer
+// Arguments:
+//  channel : channel to sample from
+//	* buff  : pointer to the buffer to store the data
+// Return value:
+//	false: if sample error
+//	true : if sample success
+bool adcManager_sampleNow(uint8_t channel, nrf_saadc_value_t * buff)
+{
+	ret_code_t error; // to store error
+	
+	// take the measurement
+	error = nrf_drv_saadc_sample_convert(channel, buff);
+	APP_ERROR_CHECK(error);
+	
+	if (error == NRF_SUCCESS)
+	{
+#ifdef DEBUG_ADC
+		NRF_LOG_INFO("ADC: Sample Taken on Channel %d -> %d", channel, *buff);
+		NRF_LOG_FLUSH();
+#endif
+		return true;
+	}
+	else
+	{
+#ifdef DEBUG_ADC
+		NRF_LOG_INFO("ADC: Sample Fail");
+		NRF_LOG_FLUSH();
+#endif
+		return false;
+	}
+}
+
 // Prepares the channels for sampling by setting up the data buffer
 // Note: The size of the buffer (number of samples) must be a multiple of the number of channels enabled
 // Arguments:
@@ -70,7 +103,7 @@ bool adcManager_sample(void)
 // Return value:
 //	false: if buffer set error
 //	true : if buffer set success
- bool adcManager_setBuffer(int16_t * buff, uint8_t samples)
+ bool adcManager_setBuffer(nrf_saadc_value_t * buff, uint8_t samples)
  {
 	 ret_code_t error; // stores errors
 	 
@@ -78,15 +111,15 @@ bool adcManager_sample(void)
 	 if (!channels_enabled || samples % channels_enabled)
 	 {
 #ifdef DEBUG_ADC
-		 if (!channels_enabled) NRF_LOG_INFO("ADC: No channels enabled, buffer init fail");
-		 else NRF_LOG_INFO("ADC: Samples not a multiple of enabled channels, buffer init fail");
+		 if (!channels_enabled) {NRF_LOG_INFO("ADC: No channels enabled, buffer init fail");}
+		 else {NRF_LOG_INFO("ADC: Samples not a multiple of enabled channels, buffer init fail")};
 		 NRF_LOG_FLUSH();
 #endif
 		 return false;
 	 }
 	 
 	 // set up buffer
-	 error = nrf_drv_saadc_buffer_convert((nrf_saadc_value_t *) buff, samples);
+	 error = nrf_drv_saadc_buffer_convert(buff, samples);
    APP_ERROR_CHECK(error);
 	 
 	 // error check
@@ -161,11 +194,11 @@ bool adcManager_init(void)
     .resolution         = (nrf_saadc_resolution_t) 2, 	 // 12 bit resolution
     .oversample         = (nrf_saadc_oversample_t) 0,		 // oversampling disabled
     .interrupt_priority = NRFX_SAADC_CONFIG_IRQ_PRIORITY,
-    .low_power_mode     = 1															 // low power mode enabled
+    .low_power_mode     = 0															 // low power mode enabled
 	};
 	
 	// init saadc
-	err_code = nrf_drv_saadc_init(&config, saadc_callback);
+	err_code = nrf_drv_saadc_init(NULL, saadc_callback);
 	APP_ERROR_CHECK(err_code);
 	
 	if (err_code == NRF_SUCCESS)
@@ -174,6 +207,7 @@ bool adcManager_init(void)
 		NRF_LOG_INFO("ADC: ADC Init Success");
 		NRF_LOG_FLUSH();
 #endif
+		status = ADCMANAGER_READY;
 		return true;
 	}
 	else
@@ -187,7 +221,7 @@ bool adcManager_init(void)
 }
 
 // Callback function for SAADC events
-static void saadc_callback(nrf_drv_saadc_evt_t const * p_event)
+void saadc_callback(nrf_drv_saadc_evt_t const * p_event)
 {
 	if (p_event->type == NRF_DRV_SAADC_EVT_DONE)
 	{
@@ -195,6 +229,10 @@ static void saadc_callback(nrf_drv_saadc_evt_t const * p_event)
 		NRF_LOG_INFO("ADC: Sample Finished");
 		NRF_LOG_FLUSH();
 #endif
+		ret_code_t err_code;
+
+    //err_code = nrf_drv_saadc_buffer_convert(p_event->data.done.p_buffer, 1);
+    //APP_ERROR_CHECK(err_code);
 		
 		status = ADCMANAGER_READY;
 	}

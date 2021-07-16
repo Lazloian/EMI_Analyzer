@@ -24,6 +24,7 @@
 #ifdef DEV_KIT
 #define LED_1 NRF_GPIO_PIN_MAP(0, 13)
 #define LED_2 NRF_GPIO_PIN_MAP(0, 14)
+#define TEMP_OUT NRF_GPIO_PIN_MAP(1, 8)
 #else
 #define LED_1 RAK_LED_1
 #define LED_2 RAK_LED_2
@@ -32,6 +33,7 @@
 bool gpioteManager_getEvent(int * buff);
 bool gpioteManager_writePin(uint32_t pin, uint8_t val);
 bool gpioteManager_init(void);
+bool gpioteManager_createOutput(uint32_t pin);
 static void in_pin_handler(nrf_drv_gpiote_pin_t pin, nrf_gpiote_polarity_t action);
 static void gpiote_init(void);
 #endif

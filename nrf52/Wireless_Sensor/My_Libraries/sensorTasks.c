@@ -332,38 +332,41 @@ void sensorTasks_blink(void * pvParameter)
   uint16_t counter = 0; // keeps to track of when the advertise
   Config config;
 	
-	while (!init_done)
-	{
-		vTaskDelay(MS_TO_TICK(500));
-	}
+	double ntc_temp;
+	
+	//while (!init_done)
+	//{
+	//	vTaskDelay(MS_TO_TICK(500));
+	//}
 	
 	// init finished, turn LED 1 off
 	gpioteManager_writePin(LED_1, 2);
+	
+	// init an ADC channels
+	adcManager_channel_init(0, NRF_SAADC_INPUT_AIN2);
+	adcManager_channel_init(1, NRF_SAADC_INPUT_AIN4);
+	
+	// create output for temp out
+	gpioteManager_createOutput(TEMP_OUT);
 
 	for (;;)
 	{
-#ifdef DEBUG_TASKS
-		NRF_LOG_INFO("TASKS: Blink at %d", xTaskGetTickCount());
-		NRF_LOG_FLUSH();
-#endif
 		// blink the rtc led
 		gpioteManager_writePin(LED_BLINK, 2);
 		vTaskDelay(MS_TO_TICK(100));
 		gpioteManager_writePin(LED_BLINK, 2);
 		
-		// check if enough time has passed to advertise and that there is no current BLE connection and (most importantly) that there are new sweeps to send
-		if (unsent_sweeps && bleManager_conn_status() == BLE_CON_DEAD && (counter++ * BLINK_PERIOD) >= ADV_PERIOD)
-		{
-      // advertise and set counter to 0
-			bleManager_adv_begin();
-      counter = 0;
+		// get temp of ntc
+		sensorFunctions_getTemp(&ntc_temp);
 
-      // blink again
-			vTaskDelay(MS_TO_TICK(100));
-      gpioteManager_writePin(LED_BLINK, 2);
-      vTaskDelay(MS_TO_TICK(100));
-      gpioteManager_writePin(LED_BLINK, 2);
-		}
+#ifdef DEBUG_TASKS
+		char tempc[8];
+		char tempf[8];
+		sprintf(tempc, "%5.2lf", ntc_temp);
+		sprintf(tempf, "%5.2lf", C_TO_F(ntc_temp));
+		NRF_LOG_INFO("TASKS: Temp is	 %s C    |   %s F", tempc, tempf);
+		NRF_LOG_FLUSH();
+#endif
 		
 		// wait
 		vTaskDelay(SEC_TO_TICK(BLINK_PERIOD));
@@ -460,19 +463,19 @@ bool sensorTasks_init(void)
 	// xret = xTaskCreate(sensorTasks_input, "inputTask", configMINIMAL_STACK_SIZE + 100, NULL, 2, &inputTask_handle);
   // if (xret != pdPASS) return false;
   
-	xret = xTaskCreate(sensorTasks_sweep, "sweepTask", configMINIMAL_STACK_SIZE + 340, NULL, 3, &sweepTask_handle);
-  if (xret != pdPASS) return false;
+	//xret = xTaskCreate(sensorTasks_sweep, "sweepTask", configMINIMAL_STACK_SIZE + 340, NULL, 3, &sweepTask_handle);
+  //if (xret != pdPASS) return false;
 
 	xret = xTaskCreate(sensorTasks_blink, "blinkTask", configMINIMAL_STACK_SIZE + 140, NULL, 1, &blinkTask_handle);
   if (xret != pdPASS) return false;
 	
-	xret = xTaskCreate(sensorTasks_usb, "usbTask", configMINIMAL_STACK_SIZE + 240, NULL, 2, &usbTask_handle);
-  if (xret != pdPASS) return false;
+	//xret = xTaskCreate(sensorTasks_usb, "usbTask", configMINIMAL_STACK_SIZE + 240, NULL, 2, &usbTask_handle);
+  //if (xret != pdPASS) return false;
 	
 	nrf_sdh_freertos_init(readyBLE, NULL);
 	
-	xret = xTaskCreate(sensorTasks_BLE, "bleTask", configMINIMAL_STACK_SIZE + 340, NULL, 2, &bleTask_handle);
-  if (xret != pdPASS) return false;
+	//xret = xTaskCreate(sensorTasks_BLE, "bleTask", configMINIMAL_STACK_SIZE + 340, NULL, 2, &bleTask_handle);
+  //if (xret != pdPASS) return false;
 
   // start the sceduler
 	vTaskStartScheduler();

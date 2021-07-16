@@ -44,6 +44,22 @@ bool gpioteManager_writePin(uint32_t pin, uint8_t val)
 	return true;
 }
 
+bool gpioteManager_createOutput(uint32_t pin)
+{
+	ret_code_t err_code;
+	
+	// set up pgio pin as output starting out low
+	nrf_drv_gpiote_out_config_t out_config = GPIOTE_CONFIG_OUT_SIMPLE(false);
+
+	// set up pin
+	err_code = nrf_drv_gpiote_out_init(pin, &out_config);
+	APP_ERROR_CHECK(err_code);
+	
+	if (err_code == NRF_SUCCESS) return true;
+	
+	return false;
+}
+
 bool gpioteManager_init(void)
 {
 	gpiote_init();

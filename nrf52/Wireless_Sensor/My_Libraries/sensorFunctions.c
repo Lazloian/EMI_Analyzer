@@ -9,6 +9,50 @@
  
  #include "sensorFunctions.h"
  
+// Uses the voltage across a 1k ohm resistor in series with an NTC to determine
+// the temperature of the NTC in Celcius
+// Arguments: 
+//	* temp	: pointer to the variable to store the final temperature calculation
+// Return value:
+//  false if error
+//  true  if success
+ bool sensorFunctions_getTemp(double * temp)
+ {
+	 // variables to store data and calculations
+	 nrf_saadc_value_t adc[2];
+	 volatile double voltage[2];
+	 volatile double ntc_res, ntc_temp;
+	 
+	 bool stat = true; // stores status of ADC operations
+	 
+	 // pull temp out pin high
+	 gpioteManager_writePin(TEMP_OUT, 1);
+	 
+	 // take measurements
+	 stat = adcManager_sampleNow(0, &adc[0]);
+	 stat = adcManager_sampleNow(1, &adc[1]);
+	 
+	 // pull temp out pin low
+	 gpioteManager_writePin(TEMP_OUT, 0);
+	
+	 // only do calculations if adc was successful
+	 if (stat)
+	 {
+		 voltage[0] = adc[0] * ADC_MULTIPLIER;
+		 voltage[1] = adc[1] * ADC_MULTIPLIER;
+		
+		 // compute the resistance of the ntc and then the log of that
+		 // only the log of ntc_res is used in the temp. calculation
+		 ntc_res = (1000.0) / ((voltage[0] / voltage[1]) - 1.0);
+		 ntc_res = log(ntc_res);
+		 
+		 *temp = (1.0) / (TEMP_A + (TEMP_B * ntc_res) + (TEMP_C * pow(ntc_res,3)));
+		 *temp = K_TO_C(*temp);
+	 }
+	 
+	 return stat;
+ }
+ 
 // Checks and sends the number of saved sweeps over usb
 // Arguments: 
 //	* sweep    : The sweep to execute
@@ -225,7 +269,7 @@ bool sensorFunctions_deleteSweeps(Config * config, bool usb)
 {
 	bool stat = true;
 	
-#ifdef DEBUG_LOG
+#ifdef DEBUG_FUNCTIONS
 	NRF_LOG_INFO("Deleting all sweeps");
 	NRF_LOG_FLUSH();
 #endif
@@ -243,14 +287,14 @@ bool sensorFunctions_deleteSweeps(Config * config, bool usb)
 	
 	if (stat && config->num_sweeps == 0)
 	{
-#ifdef DEBUG_LOG
+#ifdef DEBUG_FUNCTIONS
 		NRF_LOG_INFO("FUNCTIONS: All sweeps deleted");
 		NRF_LOG_FLUSH();
 #endif
 	}
 	else
 	{
-#ifdef DEBUG_LOG
+#ifdef DEBUG_FUNCTIONS
 		NRF_LOG_INFO("FUNCTIONS: Sweeps delete fail");
 		NRF_LOG_FLUSH();
 #endif
@@ -330,7 +374,7 @@ bool sensorFunctions_init(void)
 	if (!gpioteManager_init()) return false;
 	
 	// init saadc
-	// if (!adcManager_init()) return false;
+	if (!adcManager_init()) return false;
 	
 #ifdef DEBUG_FUNCTIONS
 	NRF_LOG_INFO("FUNCTIONS: Init Peripherals Success");
